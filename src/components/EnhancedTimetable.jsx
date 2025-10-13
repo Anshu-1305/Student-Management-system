@@ -2,17 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, MapPin, User, ChevronLeft, ChevronRight, Filter, Download, Plus, Edit, Trash2, BookOpen, Users, Video, Bell, Search, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
-const TimetableView = () => {
+const EnhancedTimetable = () => {
   const { user } = useAuth();
   const [currentWeek, setCurrentWeek] = useState(0);
   const [selectedView, setSelectedView] = useState('week');
   const [selectedClass, setSelectedClass] = useState('CSE-A');
+  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
   const [timetableData, setTimetableData] = useState({});
   const [loading, setLoading] = useState(true);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingPeriod, setEditingPeriod] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSubject, setFilterSubject] = useState('all');
 
-  // Enhanced timetable data
+  // Enhanced timetable data with comprehensive details
   const mockTimetableData = {
     'CSE-A': {
       Monday: [
@@ -25,7 +28,11 @@ const TimetableView = () => {
           subjectCode: 'CS501',
           credits: 4,
           attendance: 85,
-          nextTopic: 'Lexical Analysis'
+          nextTopic: 'Lexical Analysis',
+          facultyId: 'FAC001',
+          semester: 5,
+          branch: 'CSE',
+          section: 'A'
         },
         { 
           time: '10:00-11:00', 
@@ -36,7 +43,11 @@ const TimetableView = () => {
           subjectCode: 'CS502',
           credits: 4,
           attendance: 92,
-          nextTopic: 'AWS Services'
+          nextTopic: 'AWS Services',
+          facultyId: 'FAC002',
+          semester: 5,
+          branch: 'CSE',
+          section: 'A'
         },
         { 
           time: '11:15-12:15', 
@@ -47,27 +58,73 @@ const TimetableView = () => {
           subjectCode: 'CS503',
           credits: 3,
           attendance: 78,
-          nextTopic: 'RSA Algorithm'
+          nextTopic: 'RSA Algorithm',
+          facultyId: 'FAC003',
+          semester: 5,
+          branch: 'CSE',
+          section: 'A'
+        },
+        { 
+          time: '1:15-2:15', 
+          subject: 'Computer Networks Lab', 
+          faculty: 'Murlidher', 
+          room: 'Lab-1', 
+          type: 'Lab',
+          subjectCode: 'CS504L',
+          credits: 2,
+          attendance: 95,
+          nextTopic: 'Socket Programming',
+          facultyId: 'FAC003',
+          semester: 5,
+          branch: 'CSE',
+          section: 'A'
+        },
+        { 
+          time: '2:15-3:15', 
+          subject: 'Entrepreneurship', 
+          faculty: 'Saleha', 
+          room: 'R207', 
+          type: 'Theory',
+          subjectCode: 'HS501',
+          credits: 2,
+          attendance: 88,
+          nextTopic: 'Business Models',
+          facultyId: 'FAC004',
+          semester: 5,
+          branch: 'CSE',
+          section: 'A'
         }
       ],
       Tuesday: [
-        { time: '9:00-10:00', subject: 'Cloud Computing', faculty: 'Tukaram', room: 'R204', type: 'Theory', subjectCode: 'CS502', credits: 4, attendance: 90, nextTopic: 'Docker Containers' },
-        { time: '10:00-11:00', subject: 'Compiler Design Lab', faculty: 'Sumalatha', room: 'Lab-2', type: 'Lab', subjectCode: 'CS501L', credits: 2, attendance: 87, nextTopic: 'Lex Tool' }
+        { time: '9:00-10:00', subject: 'Cloud Computing', faculty: 'Tukaram', room: 'R204', type: 'Theory', subjectCode: 'CS502', credits: 4, attendance: 90, nextTopic: 'Docker Containers', facultyId: 'FAC002' },
+        { time: '10:00-11:00', subject: 'Compiler Design Lab', faculty: 'Sumalatha', room: 'Lab-2', type: 'Lab', subjectCode: 'CS501L', credits: 2, attendance: 87, nextTopic: 'Lex Tool', facultyId: 'FAC001' },
+        { time: '11:15-12:15', subject: 'Computer Networks', faculty: 'Murlidher', room: 'R205', type: 'Theory', subjectCode: 'CS504', credits: 4, attendance: 82, nextTopic: 'TCP/IP Protocol', facultyId: 'FAC003' },
+        { time: '1:15-2:15', subject: 'Cryptography Lab', faculty: 'Murlidher', room: 'Lab-3', type: 'Lab', subjectCode: 'CS503L', credits: 2, attendance: 91, nextTopic: 'Encryption Algorithms', facultyId: 'FAC003' }
       ],
       Wednesday: [
-        { time: '9:00-10:00', subject: 'Entrepreneurship', faculty: 'Saleha', room: 'R207', type: 'Theory', subjectCode: 'HS501', credits: 2, attendance: 85, nextTopic: 'Startup Ecosystem' },
-        { time: '10:00-11:00', subject: 'Compiler Design', faculty: 'Sumalatha', room: 'R203', type: 'Theory', subjectCode: 'CS501', credits: 4, attendance: 89, nextTopic: 'Syntax Analysis' }
+        { time: '9:00-10:00', subject: 'Entrepreneurship', faculty: 'Saleha', room: 'R207', type: 'Theory', subjectCode: 'HS501', credits: 2, attendance: 85, nextTopic: 'Startup Ecosystem', facultyId: 'FAC004' },
+        { time: '10:00-11:00', subject: 'Compiler Design', faculty: 'Sumalatha', room: 'R203', type: 'Theory', subjectCode: 'CS501', credits: 4, attendance: 89, nextTopic: 'Syntax Analysis', facultyId: 'FAC001' },
+        { time: '11:15-12:15', subject: 'Cloud Computing Lab', faculty: 'Tukaram', room: 'Lab-4', type: 'Lab', subjectCode: 'CS502L', credits: 2, attendance: 93, nextTopic: 'AWS EC2 Setup', facultyId: 'FAC002' }
       ],
       Thursday: [
-        { time: '9:00-10:00', subject: 'Computer Networks', faculty: 'Murlidher', room: 'R205', type: 'Theory', subjectCode: 'CS504', credits: 4, attendance: 86, nextTopic: 'Network Security' },
-        { time: '10:00-11:00', subject: 'Cryptography Lab', faculty: 'Murlidher', room: 'Lab-3', type: 'Lab', subjectCode: 'CS503L', credits: 2, attendance: 88, nextTopic: 'Digital Signatures' }
+        { time: '9:00-10:00', subject: 'Computer Networks', faculty: 'Murlidher', room: 'R205', type: 'Theory', subjectCode: 'CS504', credits: 4, attendance: 86, nextTopic: 'Network Security', facultyId: 'FAC003' },
+        { time: '10:00-11:00', subject: 'Cryptography Lab', faculty: 'Murlidher', room: 'Lab-3', type: 'Lab', subjectCode: 'CS503L', credits: 2, attendance: 88, nextTopic: 'Digital Signatures', facultyId: 'FAC003' },
+        { time: '11:15-12:15', subject: 'Compiler Design', faculty: 'Sumalatha', room: 'R203', type: 'Theory', subjectCode: 'CS501', credits: 4, attendance: 91, nextTopic: 'Semantic Analysis', facultyId: 'FAC001' }
       ],
       Friday: [
-        { time: '9:00-10:00', subject: 'Cloud Computing', faculty: 'Tukaram', room: 'R204', type: 'Theory', subjectCode: 'CS502', credits: 4, attendance: 87, nextTopic: 'Microservices' },
-        { time: '10:00-11:00', subject: 'Entrepreneurship', faculty: 'Saleha', room: 'R207', type: 'Theory', subjectCode: 'HS501', credits: 2, attendance: 90, nextTopic: 'Funding Sources' }
+        { time: '9:00-10:00', subject: 'Cloud Computing', faculty: 'Tukaram', room: 'R204', type: 'Theory', subjectCode: 'CS502', credits: 4, attendance: 87, nextTopic: 'Microservices', facultyId: 'FAC002' },
+        { time: '10:00-11:00', subject: 'Entrepreneurship', faculty: 'Saleha', room: 'R207', type: 'Theory', subjectCode: 'HS501', credits: 2, attendance: 90, nextTopic: 'Funding Sources', facultyId: 'FAC004' },
+        { time: '11:15-12:15', subject: 'Computer Networks', faculty: 'Murlidher', room: 'R205', type: 'Theory', subjectCode: 'CS504', credits: 4, attendance: 84, nextTopic: 'Wireless Networks', facultyId: 'FAC003' }
       ],
       Saturday: [
-        { time: '9:00-10:00', subject: 'Compiler Design Lab', faculty: 'Sumalatha', room: 'Lab-2', type: 'Lab', subjectCode: 'CS501L', credits: 2, attendance: 92, nextTopic: 'Parser Implementation' }
+        { time: '9:00-10:00', subject: 'Compiler Design Lab', faculty: 'Sumalatha', room: 'Lab-2', type: 'Lab', subjectCode: 'CS501L', credits: 2, attendance: 92, nextTopic: 'Parser Implementation', facultyId: 'FAC001' },
+        { time: '10:00-11:00', subject: 'Cryptography', faculty: 'Murlidher', room: 'R206', type: 'Theory', subjectCode: 'CS503', credits: 3, attendance: 89, nextTopic: 'Hash Functions', facultyId: 'FAC003' }
+      ]
+    },
+    'CSE-B': {
+      Monday: [
+        { time: '9:00-10:00', subject: 'Cloud Computing', faculty: 'Tukaram', room: 'R206', type: 'Theory', subjectCode: 'CS502', credits: 4, attendance: 88, nextTopic: 'Virtualization', facultyId: 'FAC002' },
+        { time: '10:00-11:00', subject: 'Compiler Design', faculty: 'Sumalatha', room: 'R207', type: 'Theory', subjectCode: 'CS501', credits: 4, attendance: 85, nextTopic: 'Grammar Types', facultyId: 'FAC001' }
       ]
     }
   };
@@ -130,6 +187,34 @@ const TimetableView = () => {
     return 'text-red-600 dark:text-red-400';
   };
 
+  const getFilteredClasses = () => {
+    const allClasses = [];
+    Object.entries(timetableData[selectedClass] || {}).forEach(([day, classes]) => {
+      classes.forEach(class_ => {
+        allClasses.push({ ...class_, day });
+      });
+    });
+
+    return allClasses.filter(class_ => {
+      const matchesSearch = searchTerm === '' || 
+        class_.subject.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        class_.faculty.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        class_.room.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilter = filterSubject === 'all' || class_.subject === filterSubject;
+      
+      return matchesSearch && matchesFilter;
+    });
+  };
+
+  const getAllSubjects = () => {
+    const subjects = new Set();
+    Object.values(timetableData[selectedClass] || {}).forEach(dayClasses => {
+      dayClasses.forEach(class_ => subjects.add(class_.subject));
+    });
+    return Array.from(subjects);
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -153,6 +238,30 @@ const TimetableView = () => {
         </div>
         
         <div className="flex flex-wrap gap-3">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search classes..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="input-field pl-10 w-48"
+            />
+          </div>
+
+          {/* Filter */}
+          <select 
+            value={filterSubject}
+            onChange={(e) => setFilterSubject(e.target.value)}
+            className="input-field"
+          >
+            <option value="all">All Subjects</option>
+            {getAllSubjects().map(subject => (
+              <option key={subject} value={subject}>{subject}</option>
+            ))}
+          </select>
+
           {user?.role === 'admin' && (
             <select 
               value={selectedClass} 
@@ -166,7 +275,7 @@ const TimetableView = () => {
           )}
           
           <div className="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-            {['week', 'day', 'upcoming'].map((view) => (
+            {['week', 'day', 'upcoming', 'list'].map((view) => (
               <button
                 key={view}
                 onClick={() => setSelectedView(view)}
@@ -197,7 +306,7 @@ const TimetableView = () => {
             </div>
             <div className="ml-4">
               <p className="text-sm font-medium text-primary-600 dark:text-primary-400">Total Subjects</p>
-              <p className="text-2xl font-bold text-black dark:text-white">5</p>
+              <p className="text-2xl font-bold text-black dark:text-white">{getAllSubjects().length}</p>
             </div>
           </div>
         </div>
@@ -238,6 +347,56 @@ const TimetableView = () => {
           </div>
         </div>
       </div>
+
+      {/* List View */}
+      {selectedView === 'list' && (
+        <div className="card">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+            <Eye className="h-5 w-5 mr-2 text-primary-500" />
+            All Classes
+          </h3>
+          
+          <div className="space-y-3">
+            {getFilteredClasses().map((class_, index) => (
+              <div key={index} className={`p-4 rounded-lg border-2 ${getSubjectColor(class_.subject)} hover:shadow-md transition-all`}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 rounded-lg bg-white bg-opacity-50 flex items-center justify-center">
+                      <BookOpen className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold">{class_.subject}</h4>
+                      <p className="text-sm opacity-75">{class_.subjectCode} • {class_.credits} Credits</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold">{class_.day}</p>
+                    <p className="text-sm opacity-75">{class_.time}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  <div className="flex items-center">
+                    <User className="h-4 w-4 mr-2" />
+                    <span>{class_.faculty}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    <span>{class_.room}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Users className="h-4 w-4 mr-2" />
+                    <span className={getAttendanceColor(class_.attendance)}>{class_.attendance}%</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="px-2 py-1 bg-white bg-opacity-50 rounded text-xs">{class_.type}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Upcoming Classes */}
       {selectedView === 'upcoming' && (
@@ -433,7 +592,7 @@ const TimetableView = () => {
                       return (
                         <td key={`${day}-${timeSlot}`} className="py-2 px-4">
                           {classForSlot ? (
-                            <div className={`p-3 rounded-lg border-2 ${getSubjectColor(classForSlot.subject)} hover:shadow-md transition-all cursor-pointer`}>
+                            <div className={`p-3 rounded-lg border-2 ${getSubjectColor(classForSlot.subject)} hover:shadow-md transition-all cursor-pointer group relative`}>
                               <div className="font-semibold text-sm mb-1">{classForSlot.subject}</div>
                               <div className="text-xs space-y-1">
                                 <div className="flex items-center">
@@ -473,4 +632,4 @@ const TimetableView = () => {
   );
 };
 
-export default TimetableView;
+export default EnhancedTimetable;

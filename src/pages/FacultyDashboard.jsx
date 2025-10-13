@@ -1,5 +1,15 @@
-import React, { useState } from 'react';
-import { User, Users, Calendar, BookOpen, TrendingUp, Bell, Award, UserCheck, BarChart3, Video } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { User, Users, Calendar, BookOpen, TrendingUp, Bell, Award, UserCheck, BarChart3, Video, Settings, FileText, Upload, Clock } from 'lucide-react';
+import { useDashboard } from '../context/DashboardContext';
+import { useBranding } from '../context/BrandingContext';
+import DashboardSection from '../components/DashboardSection';
+
+import ProfileSettings from '../components/ProfileSettings';
+import ReportAnalysis from '../components/ReportAnalysis';
+import AttendanceMarker from '../components/AttendanceMarker';
+import AssignmentManager from '../components/AssignmentManager';
+import MaterialsManager from '../components/MaterialsManager';
+import { dataService } from '../services/dataService';
 
 const StatCard = ({ icon: Icon, title, value, subtitle }) => (
   <div className="card-success bounce-in">
@@ -19,14 +29,41 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
 );
 
 const FacultyDashboard = ({ showChatOnly, setShowChatOnly }) => {
+  const { activeSection } = useDashboard();
+  const { branding } = useBranding();
+  const [showProfileSettings, setShowProfileSettings] = useState(false);
+  const [showReportAnalysis, setShowReportAnalysis] = useState(false);
+  const [showAttendanceMarker, setShowAttendanceMarker] = useState(false);
+  const [showAssignmentManager, setShowAssignmentManager] = useState(false);
+  const [showMaterialsManager, setShowMaterialsManager] = useState(false);
+  const [facultyData, setFacultyData] = useState(null);
+  const [myStudents, setMyStudents] = useState([]);
+
+  useEffect(() => {
+    loadFacultyData();
+  }, []);
+
+  const loadFacultyData = () => {
+    const students = dataService.getStudents();
+    const analytics = dataService.getAnalytics();
+    
+    setMyStudents(students.slice(0, 25)); // Faculty's students
+    setFacultyData({
+      totalStudents: students.length,
+      totalSubjects: 3,
+      avgAttendance: analytics.avgAttendance,
+      pendingAssignments: 12
+    });
+  };
+
   if (showChatOnly) {
     return (
-      <div className="p-6 card">
-        <h2 className="text-2xl font-bold mb-4">Chat</h2>
+      <div className="p-6 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700">
+        <h2 className="text-2xl font-bold mb-4">Faculty Communication</h2>
         <p>Chat functionality coming soon...</p>
         <button 
           onClick={() => setShowChatOnly(false)}
-          className="btn-primary mt-4"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors mt-4"
         >
           Back to Dashboard
         </button>
@@ -36,14 +73,36 @@ const FacultyDashboard = ({ showChatOnly, setShowChatOnly }) => {
 
   return (
     <div className="space-y-6 md:space-y-8">
-      <div id="dashboard" className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Faculty Dashboard</h1>
-          <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back, Prof. Sumalatha!</p>
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 rounded-xl p-6 text-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Users className="h-8 w-8" />
+            <div>
+              <h1 className="text-2xl font-bold">Faculty Dashboard</h1>
+              <p className="text-blue-100">Welcome back, Prof. Sumalatha!</p>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <button
+              onClick={() => setShowReportAnalysis(true)}
+              className="bg-white/10 border border-white/30 text-white px-3 py-2 rounded-lg hover:bg-white/20 transition-colors flex items-center text-sm"
+            >
+              <BarChart3 className="h-4 w-4 mr-2" />
+              Reports
+            </button>
+            <button
+              onClick={() => setShowProfileSettings(true)}
+              className="bg-white/10 border border-white/30 text-white px-3 py-2 rounded-lg hover:bg-white/20 transition-colors flex items-center text-sm"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Profile
+            </button>
+          </div>
         </div>
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Today is {new Date().toLocaleDateString()}
-        </div>
+      </div>
+      
+      <div className="text-sm text-gray-500 dark:text-gray-400 text-right">
+        Today is {new Date().toLocaleDateString()}
       </div>
 
       {/* Quick Stats */}
@@ -51,27 +110,59 @@ const FacultyDashboard = ({ showChatOnly, setShowChatOnly }) => {
         <StatCard
           icon={Users}
           title="My Students"
-          value="25"
+          value={facultyData?.totalStudents || "0"}
           subtitle="Active students"
         />
         <StatCard
           icon={BookOpen}
           title="Subjects"
-          value="3"
+          value={facultyData?.totalSubjects || "0"}
           subtitle="Teaching"
         />
         <StatCard
           icon={UserCheck}
           title="Attendance"
-          value="89%"
+          value={`${Math.round(facultyData?.avgAttendance || 0)}%`}
           subtitle="Average"
         />
         <StatCard
           icon={Award}
           title="Assignments"
-          value="12"
+          value={facultyData?.pendingAssignments || "0"}
           subtitle="Pending review"
         />
+      </div>
+
+      {/* Quick Actions */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <button 
+          onClick={() => setShowAttendanceMarker(true)}
+          className="btn-primary flex items-center justify-center"
+        >
+          <UserCheck className="h-5 w-5 mr-2" />
+          Mark Attendance
+        </button>
+        <button 
+          onClick={() => setShowAssignmentManager(true)}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
+        >
+          <FileText className="h-5 w-5 mr-2" />
+          Assignments
+        </button>
+        <button 
+          onClick={() => setShowMaterialsManager(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
+        >
+          <Upload className="h-5 w-5 mr-2" />
+          Materials
+        </button>
+        <button 
+          onClick={() => alert('Opening Virtual Classroom...')}
+          className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center"
+        >
+          <Video className="h-5 w-5 mr-2" />
+          Virtual Class
+        </button>
       </div>
 
       {/* Main Content Sections */}
@@ -137,51 +228,88 @@ const FacultyDashboard = ({ showChatOnly, setShowChatOnly }) => {
       </div>
 
       {/* Students Section */}
-      <div id="students" className="card slide-in">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">My Students</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-primary-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-primary-200 dark:border-primary-800">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-primary-100 dark:bg-primary-800 rounded-full flex items-center justify-center">
-                <span className="text-primary-600 dark:text-primary-400 font-medium">A</span>
+      <DashboardSection isActive={activeSection === 'students'}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700 p-6">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">My Students</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            {myStudents.slice(0, 6).map((student, index) => (
+              <div key={index} className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-primary-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-primary-200 dark:border-primary-800">
+                <div className="flex items-center space-x-3">
+                  <div className="h-10 w-10 bg-primary-100 dark:bg-primary-800 rounded-full flex items-center justify-center">
+                    <span className="text-primary-600 dark:text-primary-400 font-medium">
+                      {student.name ? student.name.charAt(0) : 'S'}
+                    </span>
+                  </div>
+                  <div>
+                    <p className="font-medium text-primary-900 dark:text-primary-100">
+                      {student.name || `Student ${index + 1}`}
+                    </p>
+                    <p className="text-sm text-primary-600 dark:text-primary-400">
+                      {student.rollNumber || `Roll: ${1000 + index}`}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="font-medium text-primary-900 dark:text-primary-100">Anshu Kumar</p>
-                <p className="text-sm text-primary-600 dark:text-primary-400">GPA: 8.9</p>
-              </div>
-            </div>
+            ))}
           </div>
-          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-blue-100 dark:bg-blue-800 rounded-full flex items-center justify-center">
-                <span className="text-blue-600 dark:text-blue-400 font-medium">R</span>
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white">Rahul Kumar</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">GPA: 8.5</p>
-              </div>
-            </div>
+          <div className="flex space-x-3">
+            <button 
+              onClick={() => alert('Opening detailed student list...')}
+              className="btn-primary"
+            >
+              View All Students
+            </button>
+            <button 
+              onClick={() => setShowAttendanceMarker(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
+            >
+              <UserCheck className="h-4 w-4 mr-2" />
+              Mark Attendance
+            </button>
           </div>
         </div>
-        <button className="btn-primary mt-4">View All Students</button>
-      </div>
+      </DashboardSection>
 
       {/* Attendance Section */}
-      <div id="attendance" className="card fade-in">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Attendance Tracking</h3>
-        <div className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-primary-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-primary-200 dark:border-primary-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-3xl font-bold text-primary-700 dark:text-primary-300">89%</p>
-              <p className="text-primary-600 dark:text-primary-400">Average Class Attendance</p>
-            </div>
-            <div className="h-16 w-16 bg-primary-100 dark:bg-primary-800 rounded-full flex items-center justify-center">
-              <UserCheck className="h-8 w-8 text-primary-600 dark:text-primary-400" />
+      <DashboardSection isActive={activeSection === 'attendance'}>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-blue-100 dark:border-gray-700 p-6">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Attendance Tracking</h3>
+          <div className="bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-primary-900/20 dark:to-emerald-900/20 rounded-xl p-6 border border-primary-200 dark:border-primary-800 mb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-3xl font-bold text-primary-700 dark:text-primary-300">
+                  {Math.round(facultyData?.avgAttendance || 0)}%
+                </p>
+                <p className="text-primary-600 dark:text-primary-400">Average Class Attendance</p>
+              </div>
+              <div className="h-16 w-16 bg-primary-100 dark:bg-primary-800 rounded-full flex items-center justify-center">
+                <UserCheck className="h-8 w-8 text-primary-600 dark:text-primary-400" />
+              </div>
             </div>
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div className="text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+              <p className="text-2xl font-bold text-blue-600">Today</p>
+              <p className="text-sm text-blue-600">Mark Attendance</p>
+            </div>
+            <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
+              <p className="text-2xl font-bold text-green-600">Weekly</p>
+              <p className="text-sm text-green-600">View Reports</p>
+            </div>
+            <div className="text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
+              <p className="text-2xl font-bold text-purple-600">Monthly</p>
+              <p className="text-sm text-purple-600">Analytics</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => setShowAttendanceMarker(true)}
+            className="btn-primary flex items-center"
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Mark Today's Attendance
+          </button>
         </div>
-        <button className="btn-primary mt-4">Track Attendance</button>
-      </div>
+      </DashboardSection>
 
       {/* Other sections */}
       <div id="materials" className="card slide-in">
@@ -233,6 +361,36 @@ const FacultyDashboard = ({ showChatOnly, setShowChatOnly }) => {
           Open Chat
         </button>
       </div>
+      
+      <ProfileSettings
+        isOpen={showProfileSettings}
+        onClose={() => setShowProfileSettings(false)}
+        userRole="faculty"
+      />
+      
+      <ReportAnalysis
+        isOpen={showReportAnalysis}
+        onClose={() => setShowReportAnalysis(false)}
+        userRole="faculty"
+      />
+      
+      <AttendanceMarker
+        isOpen={showAttendanceMarker}
+        onClose={() => setShowAttendanceMarker(false)}
+        classData={{ department: 'CSE', section: 'B', subject: 'Data Structures' }}
+      />
+      
+      <AssignmentManager
+        isOpen={showAssignmentManager}
+        onClose={() => setShowAssignmentManager(false)}
+        userRole="faculty"
+      />
+      
+      <MaterialsManager
+        isOpen={showMaterialsManager}
+        onClose={() => setShowMaterialsManager(false)}
+        userRole="faculty"
+      />
     </div>
   );
 };

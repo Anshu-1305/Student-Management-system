@@ -1,13 +1,15 @@
-import { AlertCircle, ArrowRight, CheckCircle, Eye, EyeOff, GraduationCap, Loader, Lock, Mail, Moon, Sun, User, UserCog, Users } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle, Eye, EyeOff, GraduationCap, Loader, Lock, Mail, Moon, Sun, User, UserCog, Users, Building } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { getAllInstitutes, setCurrentInstitute, applyInstituteTheme } from '../utils/instituteConfig';
 
 const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     role: 'student',
+    institute: 'jntuh',
     rememberMe: false
   });
   const [showPassword, setShowPassword] = useState(false);
@@ -52,13 +54,19 @@ const Login = () => {
     await new Promise(resolve => setTimeout(resolve, 1500));
     
     try {
+      // Set selected institute
+      setCurrentInstitute(formData.institute);
+      applyInstituteTheme(formData.institute);
+      
       // Mock authentication - in real app, this would call an API
       const mockUser = {
         id: formData.role === 'admin' ? 1 : formData.role === 'faculty' ? 2 : 36,
         name: formData.role === 'admin' ? 'Admin User' : 
-              formData.role === 'faculty' ? 'Sumalatha' : 'Anshu Kumar',
+              formData.role === 'faculty' ? 'Sumalatha' : 
+              formData.role === 'parent' ? 'Parent User' : 'Anshu Kumar',
         email: formData.email,
-        role: formData.role
+        role: formData.role,
+        instituteId: formData.institute
       };
       
       setShowSuccess(true);
@@ -89,6 +97,7 @@ const Login = () => {
       case 'admin': return <UserCog className="h-5 w-5" />;
       case 'faculty': return <User className="h-5 w-5" />;
       case 'student': return <GraduationCap className="h-5 w-5" />;
+      case 'parent': return <Users className="h-5 w-5" />;
       default: return <User className="h-5 w-5" />;
     }
   };
@@ -98,6 +107,7 @@ const Login = () => {
       case 'admin': return 'text-red-600 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800';
       case 'faculty': return 'text-blue-600 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800';
       case 'student': return 'text-primary-600 bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800';
+      case 'parent': return 'text-purple-600 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800';
       default: return 'text-gray-600 bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800';
     }
   };
@@ -209,13 +219,50 @@ const Login = () => {
           {/* Login form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="card-elevated space-y-6">
+              {/* Institute selection */}
+              <div className="space-y-3">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Select Institute
+                </label>
+                <div className="space-y-2">
+                  {getAllInstitutes().map((institute) => (
+                    <label
+                      key={institute.id}
+                      className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
+                        formData.institute === institute.id
+                          ? `${institute.branding.bgColor} ${institute.branding.textColor} ${institute.branding.borderColor}`
+                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="institute"
+                        value={institute.id}
+                        checked={formData.institute === institute.id}
+                        onChange={(e) => {
+                          handleChange(e);
+                          applyInstituteTheme(e.target.value);
+                        }}
+                        className="sr-only"
+                      />
+                      <Building className={`h-5 w-5 mr-3 ${formData.institute === institute.id ? 'scale-110' : ''} transition-transform duration-200`} />
+                      <div className="flex-1">
+                        <p className="font-medium">{institute.name}</p>
+                        <p className="text-sm opacity-75">{institute.shortName} • {institute.type}</p>
+                        <p className="text-xs opacity-60">{institute.tagline}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               {/* Role selection */}
               <div className="space-y-3">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Select Role
                 </label>
-                <div className="grid grid-cols-3 gap-3">
-                  {['student', 'faculty', 'admin'].map((role) => (
+                <div className="grid grid-cols-4 gap-3">
+                  {['student', 'faculty', 'admin', 'parent'].map((role) => (
                     <label
                       key={role}
                       className={`relative flex flex-col items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
@@ -364,7 +411,7 @@ const Login = () => {
           {/* Demo credentials */}
           <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-3 border border-gray-200 dark:border-gray-800">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 text-center">Demo Credentials</p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
               <div className="bg-white dark:bg-black rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                 <p className="font-semibold text-primary-600 dark:text-primary-400">Student</p>
                 <p className="text-gray-600 dark:text-gray-400">student@demo.com</p>
@@ -376,6 +423,10 @@ const Login = () => {
               <div className="bg-white dark:bg-black rounded-lg p-3 border border-gray-200 dark:border-gray-700">
                 <p className="font-semibold text-red-600 dark:text-red-400">Admin</p>
                 <p className="text-gray-600 dark:text-gray-400">admin@demo.com</p>
+              </div>
+              <div className="bg-white dark:bg-black rounded-lg p-3 border border-gray-200 dark:border-gray-700">
+                <p className="font-semibold text-purple-600 dark:text-purple-400">Parent</p>
+                <p className="text-gray-600 dark:text-gray-400">parent@demo.com</p>
               </div>
             </div>
             <p className="text-xs text-center text-gray-500 dark:text-gray-400">

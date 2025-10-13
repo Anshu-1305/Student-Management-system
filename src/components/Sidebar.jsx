@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { X, MessageCircle, Users, UserCheck, GraduationCap, BarChart3, Bell, Settings, Calendar, BookOpen, Home, TrendingUp, Award, FileText, Video, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useDashboard } from '../context/DashboardContext';
 
-const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly, setCurrentView }) => {
+const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
   const { user } = useAuth();
   const { isDark } = useTheme();
-  const [activeSection, setActiveSection] = useState('dashboard');
+  const { activeSection, navigateToSection } = useDashboard();
   const [hoveredItem, setHoveredItem] = useState(null);
 
   // Close sidebar on escape key
@@ -59,15 +60,29 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly, setCurrentVie
       case 'student':
         return [
           ...baseItems,
-          { icon: Calendar, label: 'My Timetable', section: 'timetable', color: 'text-orange-500' },
+          { icon: Calendar, label: 'Timetable & Attendance', section: 'timetable', color: 'text-orange-500' },
           { icon: BookOpen, label: 'Syllabus', section: 'syllabus', color: 'text-indigo-500' },
-          { icon: UserCheck, label: 'My Attendance', section: 'attendance', color: 'text-green-500' },
-          { icon: Award, label: 'My Results', section: 'results', color: 'text-yellow-500' },
-          { icon: FileText, label: 'My Reports', section: 'reports', color: 'text-cyan-500' },
+          { icon: FileText, label: 'Assignments', section: 'assignments', color: 'text-blue-500', badge: '3' },
+          { icon: Award, label: 'Lab Work', section: 'labwork', color: 'text-purple-500', badge: '2' },
+          { icon: BookOpen, label: 'Skills', section: 'skills', color: 'text-green-500' },
+          { icon: Award, label: 'Certificates', section: 'certificates', color: 'text-yellow-500', badge: '5' },
+          { icon: TrendingUp, label: 'My Report', section: 'results', color: 'text-yellow-500' },
+          { icon: BarChart3, label: 'My Reports', section: 'reports', color: 'text-cyan-500' },
           { icon: Video, label: 'Virtual Class', section: 'virtual', color: 'text-purple-500' },
           { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '2' },
           { icon: Settings, label: 'Profile', section: 'profile', color: 'text-gray-500' },
           { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '12' },
+        ];
+      case 'parent':
+        return [
+          ...baseItems,
+          { icon: Users, label: 'Child Progress', section: 'progress', color: 'text-blue-500' },
+          { icon: UserCheck, label: 'Attendance', section: 'attendance', color: 'text-green-500' },
+          { icon: Award, label: 'Results', section: 'results', color: 'text-yellow-500' },
+          { icon: Calendar, label: 'Timetable', section: 'timetable', color: 'text-orange-500' },
+          { icon: TrendingUp, label: 'Fee Status', section: 'fees', color: 'text-red-500' },
+          { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '4' },
+          { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '3' },
         ];
       default:
         return baseItems;
@@ -77,15 +92,11 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly, setCurrentVie
   const menuItems = getMenuItems();
 
   const handleItemClick = (item) => {
-    setActiveSection(item.section);
     if (item.isChat) {
       setShowChatOnly && setShowChatOnly(true);
     } else {
       setShowChatOnly && setShowChatOnly(false);
-      const element = document.getElementById(item.section);
-      if (element) {
-        element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
+      navigateToSection(item.section);
     }
     onClose();
   };
@@ -181,8 +192,8 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly, setCurrentVie
                   onMouseLeave={() => setHoveredItem(null)}
                   className={`nav-item group relative overflow-hidden ${
                     isActive
-                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg shadow-primary-500/25 scale-105'
-                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800/50'
+                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg shadow-blue-500/25 scale-105 border-l-4 border-blue-300'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:border-l-4 hover:border-blue-200'
                   } ${isActive ? 'active' : ''}`}
                   style={{
                     animationDelay: `${index * 50}ms`
@@ -190,7 +201,7 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly, setCurrentVie
                 >
                   {/* Background gradient for hover effect */}
                   {!isActive && (
-                    <div className={`absolute inset-0 bg-gradient-to-r from-primary-50 to-emerald-50 dark:from-primary-900/10 dark:to-emerald-900/10 opacity-0 group-hover:opacity-100 transition-opacity duration-200`} />
+                    <div className={`absolute inset-0 bg-gradient-to-r from-blue-50 to-white dark:from-blue-900/10 dark:to-gray-800 opacity-0 group-hover:opacity-100 transition-opacity duration-200`} />
                   )}
                   
                   <div className="relative flex items-center justify-between w-full">

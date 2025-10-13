@@ -1,12 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
+import EnhancedChat from './EnhancedChat';
+import NotificationCenter from './NotificationCenter';
+import VirtualClassroom from './VirtualClassroom';
 import { useTheme } from '../context/ThemeContext';
+import { useAuth } from '../context/AuthContext';
+import realTimeService from '../services/realTimeService';
+import { dataService } from '../services/dataService';
 
 const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [showChat, setShowChat] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showVirtualClass, setShowVirtualClass] = useState(false);
+  const [contacts, setContacts] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const { isDark } = useTheme();
+  const { user } = useAuth();
+
+  // Initialize real-time services and load data
+  useEffect(() => {
+    if (user) {
+      loadContacts();
+      updateUnreadCounts();
+      
+      realTimeService.on('newNotification', updateUnreadCounts);
+      realTimeService.on('newMessage', updateUnreadCounts);
+      
+      return () => {
+        realTimeService.off('newNotification', updateUnreadCounts);
+        realTimeService.off('newMessage', updateUnreadCounts);
+      };
+    }
+  }, [user]);
 
   // Close sidebar when clicking outside on mobile
   useEffect(() => {
@@ -28,7 +57,6 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
     window.addEventListener('resize', handleResize);
     document.addEventListener('mousedown', handleClickOutside);
     
-    // Loading simulation
     const timer = setTimeout(() => setIsLoading(false), 500);
 
     return () => {
@@ -38,12 +66,42 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
     };
   }, [sidebarOpen]);
 
+  const loadContacts = () => {
+    if (!user) return;
+    
+    try {
+      const contactList = realTimeService.getContacts(user.role, user.email, user.instituteId || 'default');
+      setContacts(contactList);
+    } catch (error) {
+      console.error('Error loading contacts:', error);
+      setContacts([]);
+    }
+  };
+
+  const updateUnreadCounts = () => {
+    if (!user) return;
+    
+    try {
+      const notificationCount = realTimeService.getUnreadCount(user.role, user.email);
+      setUnreadNotifications(notificationCount);
+      
+      let messageCount = 0;
+      contacts.forEach(contact => {
+        const chatId = [user.email, contact.email].sort().join('-');
+        messageCount += realTimeService.getChatUnreadCount(chatId);
+      });
+      setUnreadMessages(messageCount);
+    } catch (error) {
+      console.error('Error updating unread counts:', error);
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-white dark:bg-black transition-colors duration-300">
         <div className="text-center space-y-4">
-          <div className="loading-spinner w-12 h-12 mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
           <p className="text-gray-600 dark:text-gray-400 font-medium">Loading your dashboard...</p>
         </div>
       </div>
@@ -59,12 +117,24 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
         showChatOnly={showChatOnly}
         setShowChatOnly={setShowChatOnly}
         setCurrentView={setCurrentView}
+        onChatClick={() => setShowChat(true)}
+        onNotificationClick={() => setShowNotifications(true)}
+        onVirtualClassClick={() => setShowVirtualClass(true)}
+        unreadMessages={unreadMessages}
+        unreadNotifications={unreadNotifications}
       />
       
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
         {/* Navbar */}
-        <Navbar onMenuClick={() => setSidebarOpen(true)} />
+        <Navbar 
+          onMenuClick={() => setSidebarOpen(true)}
+          onChatClick={() => setShowChat(true)}
+          onNotificationClick={() => setShowNotifications(true)}
+          onVirtualClassClick={() => setShowVirtualClass(true)}
+          unreadMessages={unreadMessages}
+          unreadNotifications={unreadNotifications}
+        />
         
         {/* Main content */}
         <main className="flex-1 relative overflow-hidden bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-950 dark:via-black dark:to-gray-900">
@@ -100,6 +170,25 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
           aria-hidden="true"
         />
       )}
+      
+      {/* Enhanced Chat */}
+      <EnhancedChat
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        contacts={contacts}
+      />
+      
+      {/* Notification Center */}
+      <NotificationCenter
+        isOpen={showNotifications}
+        onClose={() => setShowNotifications(false)}
+      />
+      
+      {/* Virtual Classroom */}
+      <VirtualClassroom
+        isOpen={showVirtualClass}
+        onClose={() => setShowVirtualClass(false)}
+      />
       
       {/* Keyboard navigation support */}
       <div 

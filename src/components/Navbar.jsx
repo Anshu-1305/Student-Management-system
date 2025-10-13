@@ -1,15 +1,26 @@
 import React, { useState, useEffect } from 'react';
-import { Menu, Bell, User, Moon, Sun, LogOut, Search, Settings, ChevronDown } from 'lucide-react';
+import { Menu, Bell, User, Moon, Sun, LogOut, Search, Settings, ChevronDown, MessageCircle, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useBranding } from '../context/BrandingContext';
+import realTimeService from '../services/realTimeService';
 
-const Navbar = ({ onMenuClick }) => {
+const Navbar = ({ 
+  onMenuClick, 
+  onChatClick, 
+  onNotificationClick, 
+  onVirtualClassClick,
+  unreadMessages = 0,
+  unreadNotifications = 0
+}) => {
   const { user, logout } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { branding } = useBranding();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(3);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
+  const [realTimeUnreadCount, setRealTimeUnreadCount] = useState(0);
+  const [realTimeMessageCount, setRealTimeMessageCount] = useState(0);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -23,9 +34,58 @@ const Navbar = ({ onMenuClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showProfileMenu]);
 
+  // Setup real-time listeners
+  useEffect(() => {
+    if (user) {
+      updateRealTimeCounts();
+      setupRealTimeListeners();
+    }
+    
+    return () => {
+      realTimeService.off('newNotification', updateRealTimeCounts);
+      realTimeService.off('newMessage', updateRealTimeCounts);
+      realTimeService.off('notificationRead', updateRealTimeCounts);
+    };
+  }, [user]);
+
+  const setupRealTimeListeners = () => {
+    realTimeService.on('newNotification', updateRealTimeCounts);
+    realTimeService.on('newMessage', updateRealTimeCounts);
+    realTimeService.on('notificationRead', updateRealTimeCounts);
+  };
+
+  const updateRealTimeCounts = () => {
+    if (user) {
+      const notificationCount = realTimeService.getUnreadCount(user.role, user.email);
+      setRealTimeUnreadCount(notificationCount);
+      
+      // Get contacts and count unread messages
+      const contacts = realTimeService.getContacts(user.role, user.email, user.instituteId);
+      let messageCount = 0;
+      contacts.forEach(contact => {
+        const chatId = [user.email, contact.email].sort().join('-');
+        messageCount += realTimeService.getChatUnreadCount(chatId);
+      });
+      setRealTimeMessageCount(messageCount);
+    }
+  };
+
   const handleNotificationClick = () => {
-    // Mock notification handling - in real app this would open notifications panel
-    setNotificationCount(0);
+    if (onNotificationClick) {
+      onNotificationClick();
+    }
+  };
+
+  const handleChatClick = () => {
+    if (onChatClick) {
+      onChatClick();
+    }
+  };
+
+  const handleVirtualClassClick = () => {
+    if (onVirtualClassClick) {
+      onVirtualClassClick();
+    }
   };
 
   const handleSearch = (e) => {
@@ -68,14 +128,25 @@ const Navbar = ({ onMenuClick }) => {
             
             {/* Logo and title */}
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-lg">S</span>
+              {branding?.logo ? (
+                <img src={branding.logo} alt="Logo" className="w-10 h-10 rounded-xl shadow-lg" />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-primary-600 rounded-xl flex items-center justify-center shadow-lg">
+                  <span className="text-white font-bold text-lg">
+                    {branding?.instituteName?.charAt(0) || 'S'}
+                  </span>
+                </div>
+              )}
+              <div className="hidden sm:block">
+                <h1 className="text-xl lg:text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent">
+                  {branding?.instituteName || 'Smart SMS'}
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Student Management System
+                </p>
               </div>
-              <h1 className="hidden sm:block text-xl lg:text-2xl font-bold bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent">
-                Smart SMS
-              </h1>
               <h1 className="sm:hidden text-lg font-bold text-gray-800 dark:text-white">
-                SMS
+                {branding?.shortName || 'SMS'}
               </h1>
             </div>
           </div>
@@ -128,6 +199,31 @@ const Navbar = ({ onMenuClick }) => {
               )}
             </button>
 
+            {/* Virtual Classroom - Faculty and Students only */}
+            {(user?.role === 'faculty' || user?.role === 'student') && (
+              <button
+                onClick={handleVirtualClassClick}
+                className="touch-target btn-ghost p-2 rounded-xl transition-all duration-200 hover:scale-110 active:scale-95"
+                aria-label="Virtual Classroom"
+              >
+                <Video className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              </button>
+            )}
+
+            {/* Messages */}
+            <button
+              onClick={handleChatClick}
+              className="touch-target btn-ghost p-2 rounded-xl relative transition-all duration-200 hover:scale-110 active:scale-95"
+              aria-label="Messages"
+            >
+              <MessageCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+              {(realTimeMessageCount || unreadMessages) > 0 && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse shadow-lg">
+                  {(realTimeMessageCount || unreadMessages) > 9 ? '9+' : (realTimeMessageCount || unreadMessages)}
+                </span>
+              )}
+            </button>
+
             {/* Notifications */}
             <button
               onClick={handleNotificationClick}
@@ -135,9 +231,9 @@ const Navbar = ({ onMenuClick }) => {
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              {notificationCount > 0 && (
+              {(realTimeUnreadCount || unreadNotifications) > 0 && (
                 <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse shadow-lg">
-                  {notificationCount > 9 ? '9+' : notificationCount}
+                  {(realTimeUnreadCount || unreadNotifications) > 9 ? '9+' : (realTimeUnreadCount || unreadNotifications)}
                 </span>
               )}
             </button>
@@ -166,7 +262,7 @@ const Navbar = ({ onMenuClick }) => {
                     {user?.name || 'User'}
                   </p>
                   <p className="text-xs text-gray-500 dark:text-gray-400 capitalize font-medium">
-                    {user?.role || 'Role'}
+                    {user?.role || 'Role'} • {branding?.shortName || 'Institute'}
                   </p>
                 </div>
                 

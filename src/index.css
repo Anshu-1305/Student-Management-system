@@ -2,6 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+
+
+/* Enhanced theming variables */
+:root {
+  --institute-primary: #3b82f6;
+  --institute-secondary: #1e40af;
+  --institute-accent: #60a5fa;
+}
+
+/* Institute branding support */
+.institute-theme {
+  --primary-color: var(--institute-primary);
+  --secondary-color: var(--institute-secondary);
+  --accent-color: var(--institute-accent);
+}
+
+/* Enhanced mobile viewport handling */
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
 @layer base {
   body {
     @apply text-black dark:text-white;
@@ -415,7 +448,7 @@
   animation: shimmer 2s ease-in-out infinite;
 }
 
-/* Print Styles */
+/* Enhanced Print Styles */
 @media print {
   .no-print {
     display: none !important;
@@ -433,5 +466,143 @@
   .card {
     border: 1px solid #000 !important;
     box-shadow: none !important;
+  }
+  
+  .modal-overlay {
+    display: none !important;
+  }
+}
+
+/* Mobile-first responsive utilities */
+.mobile-stack {
+  @apply flex flex-col space-y-2;
+}
+
+.tablet-grid {
+  @apply grid grid-cols-1 md:grid-cols-2;
+}
+
+.desktop-grid {
+  @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+}
+
+/* Enhanced notification styles */
+.notification-badge {
+  @apply absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse;
+}
+
+.chat-badge {
+  @apply absolute -top-1 -right-1 h-5 w-5 bg-blue-500 text-white text-xs rounded-full flex items-center justify-center font-bold;
+}
+
+/* Enhanced modal styles */
+.modal-overlay {
+  @apply fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm z-50 flex items-center justify-center p-4;
+}
+
+.modal-content-responsive {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-sm sm:max-w-md md:max-w-lg lg:max-w-xl xl:max-w-2xl max-h-[90vh] overflow-y-auto;
+}
+
+/* Chat specific responsive styles */
+.chat-sidebar {
+  @apply w-full sm:w-80 md:w-96 border-r border-gray-200 dark:border-gray-700;
+}
+
+.chat-main {
+  @apply flex-1 min-w-0;
+}
+
+.chat-message {
+  @apply max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl;
+}
+
+/* Virtual classroom responsive styles */
+.virtual-class-grid {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+}
+
+.virtual-class-card {
+  @apply bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 sm:p-6 hover:shadow-lg transition-shadow;
+}
+
+/* Enhanced accessibility */
+.focus-ring {
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-800;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    @apply border-2 border-gray-900 dark:border-white;
+  }
+  
+  button {
+    @apply border-2 border-current;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .float, .pulse-slow, .bounce-in {
+    animation: none !important;
+  }
+}
+
+/* Enhanced responsive breakpoints */
+@media (max-width: 480px) {
+  .text-responsive {
+    @apply text-sm;
+  }
+  
+  .p-responsive {
+    @apply p-3;
+  }
+  
+  .modal-content-responsive {
+    @apply m-2 max-h-[95vh];
+  }
+}
+
+/* Touch device optimizations */
+@media (hover: none) and (pointer: coarse) {
+  .touch-optimized {
+    @apply min-h-[48px] min-w-[48px];
+  }
+}
+
+/* Additional responsive utilities */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.grid-responsive {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .grid-responsive {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-responsive {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1280px) {
+  .grid-responsive {
+    grid-template-columns: repeat(4, 1fr);
   }
 }

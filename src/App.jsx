@@ -2,20 +2,28 @@ import { useState } from 'react';
 import { Navigate, Route, BrowserRouter as Router, Routes } from 'react-router-dom';
 import Layout from './components/Layout';
 import { AuthProvider, useAuth } from './context/AuthContext';
-import { OrganizationProvider } from './context/OrganizationContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { DashboardProvider } from './context/DashboardContext';
+import { BrandingProvider } from './context/BrandingContext';
 import AdminDashboard from './pages/AdminDashboard';
 import FacultyDashboard from './pages/FacultyDashboard';
 import Login from './pages/Login';
 import StudentDashboard from './pages/StudentDashboard';
+import ParentDashboard from './pages/ParentDashboard';
+import SuperAdminDashboard from './pages/SuperAdminDashboard';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return <div className="flex items-center justify-center min-h-screen">
-      <div className="loading-spinner rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
-    </div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
   }
   
   if (!user) {
@@ -61,6 +69,16 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
+      <Route path="/parent" element={
+        <ProtectedRoute allowedRoles={['parent']}>
+          <Layout showChatOnly={showChatOnly} setShowChatOnly={setShowChatOnly}>
+            <ParentDashboard showChatOnly={showChatOnly} setShowChatOnly={setShowChatOnly} />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/super-admin" element={<SuperAdminDashboard />} />
+      
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/unauthorized" element={
         <div className="flex items-center justify-center min-h-screen">
@@ -70,6 +88,8 @@ const AppRoutes = () => {
           </div>
         </div>
       } />
+      
+
     </Routes>
   );
 };
@@ -77,15 +97,17 @@ const AppRoutes = () => {
 function App() {
   return (
     <ThemeProvider>
-      <OrganizationProvider>
+      <BrandingProvider>
         <AuthProvider>
-          <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
-              <AppRoutes />
-            </div>
-          </Router>
+          <DashboardProvider>
+            <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+              <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-200">
+                <AppRoutes />
+              </div>
+            </Router>
+          </DashboardProvider>
         </AuthProvider>
-      </OrganizationProvider>
+      </BrandingProvider>
     </ThemeProvider>
   );
 }

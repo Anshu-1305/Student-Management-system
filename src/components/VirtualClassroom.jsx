@@ -1,287 +1,507 @@
 import React, { useState, useEffect } from 'react';
-import { Video, Calendar, Plus, Users, Clock, Link, Bell } from 'lucide-react';
+import { X, Video, Calendar, Clock, Users, Plus, ExternalLink, Download, Upload } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import GoogleAuth from './GoogleAuth';
-import ClassCalendar from './ClassCalendar';
+import { useTheme } from '../context/ThemeContext';
+import realTimeService from '../services/realTimeService';
 
-const VirtualClassroom = () => {
+const VirtualClassroom = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const [classes, setClasses] = useState([]);
+  const { isDarkMode } = useTheme();
+  const [virtualClasses, setVirtualClasses] = useState([]);
+  const [activeTab, setActiveTab] = useState('upcoming');
   const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [googleToken, setGoogleToken] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [newClass, setNewClass] = useState({
+    subject: '',
+    date: '',
+    time: '',
+    duration: 60,
+    section: '',
+    meetLink: '',
+    materials: []
+  });
 
-  const mockClasses = [
-    {
-      id: 1,
-      title: 'Data Structures - Binary Trees',
-      subject: 'Data Structures',
-      date: '2024-01-25',
-      time: '10:00',
-      duration: 60,
-      meetLink: 'https://meet.google.com/abc-defg-hij',
-      students: 45,
-      status: 'scheduled',
-      createdBy: 'Sumalatha'
-    },
-    {
-      id: 2,
-      title: 'Database Management - Normalization',
-      subject: 'Database Management',
-      date: '2024-01-26',
-      time: '14:00',
-      duration: 90,
-      meetLink: 'https://meet.google.com/xyz-uvwx-yzab',
-      students: 42,
-      status: 'completed',
-      createdBy: 'Sumalatha'
+  const getCurrentInstitute = () => {
+    try {
+      const stored = localStorage.getItem('currentInstitute');
+      if (stored && stored.startsWith('{')) {
+        return JSON.parse(stored);
+      }
+      return {
+        name: 'JNTUH',
+        logo: '/api/placeholder/40/40',
+        primaryColor: '#059669'
+      };
+    } catch (error) {
+      return {
+        name: 'JNTUH',
+        logo: '/api/placeholder/40/40',
+        primaryColor: '#059669'
+      };
     }
-  ];
+  };
+  
+  const currentInstitute = getCurrentInstitute();
 
   useEffect(() => {
-    setClasses(mockClasses);
-    // Load students for notifications
-    setStudents([
-      { email: 'anshu.kumar@student.edu', name: 'Anshu Kumar' },
-      { email: 'priya.sharma@student.edu', name: 'Priya Sharma' },
-      { email: 'rahul.reddy@student.edu', name: 'Rahul Reddy' }
-    ]);
-    
-    // Load Google token
-    const token = localStorage.getItem('google_access_token');
-    if (token) setGoogleToken(token);
-  }, []);
+    if (isOpen) {
+      loadVirtualClasses();
+      setupRealTimeListeners();
+    }
+    return () => {
+      realTimeService.off('classScheduled', handleClassScheduled);
+      realTimeService.off('userJoinedClass', handleUserJoinedClass);
+    };
+  }, [isOpen, user]);
 
-  const ScheduleClassModal = () => {
-    const [formData, setFormData] = useState({
-      title: '',
+  const loadVirtualClasses = () => {
+    const classes = realTimeService.getVirtualClasses(user.role, user.email);
+    setVirtualClasses(classes);
+  };
+
+  const setupRealTimeListeners = () => {
+    realTimeService.on('classScheduled', handleClassScheduled);
+    realTimeService.on('userJoinedClass', handleUserJoinedClass);
+  };
+
+  const handleClassScheduled = (classData) => {
+    setVirtualClasses(prev => [classData, ...prev]);
+  };
+
+  const handleUserJoinedClass = ({ classId, userEmail, userName }) => {
+    setVirtualClasses(prev => prev.map(cls => 
+      cls.id === classId 
+        ? { ...cls, attendees: [...cls.attendees, { email: userEmail, name: userName, joinTime: new Date().toISOString() }] }
+        : cls
+    ));
+  };
+
+  const scheduleClass = () => {
+    if (!newClass.subject.trim() || !newClass.date || !newClass.time) return;
+
+    const classData = {
+      ...newClass,
+      faculty: user.email,
+      meetLink: newClass.meetLink || realTimeService.generateMeetLink()
+    };
+
+    realTimeService.scheduleClass(classData);
+    setNewClass({
       subject: '',
       date: '',
       time: '',
       duration: 60,
-      description: ''
+      section: '',
+      meetLink: '',
+      materials: []
     });
-
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!googleToken) {
-        alert('Please connect Google Calendar first');
-        return;
-      }
-      
-      setLoading(true);
-      try {
-        // Create Google Calendar event with Meet link
-        const response = await fetch('/api/virtual-classes', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${googleToken}`
-          },
-          body: JSON.stringify({
-            ...formData,
-            attendees: students.map(s => s.email)
-          })
-        });
-        
-        const result = await response.json();
-        
-        if (response.ok) {
-          setClasses([...classes, result]);
-          setShowScheduleModal(false);
-          alert(`Class scheduled! Meet link: ${result.meetLink}\nNotifications sent to ${students.length} students.`);
-          setFormData({ title: '', subject: '', date: '', time: '', duration: 60, description: '' });
-        } else {
-          throw new Error(result.error);
-        }
-      } catch (error) {
-        alert('Failed to schedule class: ' + error.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-black border border-[#22c55e] rounded-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-          <h3 className="text-lg font-semibold text-black dark:text-white mb-4">Schedule Virtual Class</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <input
-              type="text"
-              placeholder="Class Title"
-              value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              className="input-field"
-              required
-            />
-            
-            <select
-              value={formData.subject}
-              onChange={(e) => setFormData({...formData, subject: e.target.value})}
-              className="input-field"
-              required
-            >
-              <option value="">Select Subject</option>
-              <option value="Data Structures">Data Structures</option>
-              <option value="Database Management">Database Management</option>
-              <option value="Software Engineering">Software Engineering</option>
-              <option value="Machine Learning">Machine Learning</option>
-            </select>
-
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({...formData, date: e.target.value})}
-                className="input-field"
-                required
-              />
-              <input
-                type="time"
-                value={formData.time}
-                onChange={(e) => setFormData({...formData, time: e.target.value})}
-                className="input-field"
-                required
-              />
-            </div>
-
-            <select
-              value={formData.duration}
-              onChange={(e) => setFormData({...formData, duration: parseInt(e.target.value)})}
-              className="input-field"
-            >
-              <option value={30}>30 minutes</option>
-              <option value={60}>1 hour</option>
-              <option value={90}>1.5 hours</option>
-              <option value={120}>2 hours</option>
-            </select>
-
-            <textarea
-              placeholder="Class Description (Optional)"
-              value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="input-field h-20 resize-none"
-            />
-
-            <div className="flex space-x-2">
-              <button type="submit" disabled={loading} className="btn-primary flex-1">
-                {loading ? 'Scheduling...' : 'Schedule Class'}
-              </button>
-              <button type="button" onClick={() => setShowScheduleModal(false)} className="btn-secondary flex-1">
-                Cancel
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
+    setShowScheduleModal(false);
   };
 
-  const canSchedule = user?.role === 'faculty' || user?.role === 'admin';
+  const joinClass = (classId) => {
+    const virtualClass = realTimeService.joinClass(classId, user.email, user.name || user.email);
+    if (virtualClass?.meetLink) {
+      window.open(virtualClass.meetLink, '_blank');
+    }
+  };
+
+  const getFilteredClasses = () => {
+    const now = new Date();
+    
+    switch (activeTab) {
+      case 'upcoming':
+        return virtualClasses.filter(cls => {
+          const classDateTime = new Date(cls.date + ' ' + cls.time);
+          return classDateTime > now;
+        });
+      case 'ongoing':
+        return virtualClasses.filter(cls => {
+          const classDateTime = new Date(cls.date + ' ' + cls.time);
+          const endTime = new Date(classDateTime.getTime() + cls.duration * 60000);
+          return classDateTime <= now && now <= endTime;
+        });
+      case 'completed':
+        return virtualClasses.filter(cls => {
+          const classDateTime = new Date(cls.date + ' ' + cls.time);
+          const endTime = new Date(classDateTime.getTime() + cls.duration * 60000);
+          return endTime < now;
+        });
+      default:
+        return virtualClasses;
+    }
+  };
+
+  const formatDateTime = (date, time) => {
+    const dateTime = new Date(date + ' ' + time);
+    return {
+      date: dateTime.toLocaleDateString(),
+      time: dateTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      full: dateTime.toLocaleString()
+    };
+  };
+
+  const getTimeUntilClass = (date, time) => {
+    const classDateTime = new Date(date + ' ' + time);
+    const now = new Date();
+    const diffInMinutes = Math.floor((classDateTime - now) / (1000 * 60));
+    
+    if (diffInMinutes < 0) return 'Started';
+    if (diffInMinutes < 60) return `${diffInMinutes}m`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ${diffInMinutes % 60}m`;
+    return `${Math.floor(diffInMinutes / 1440)}d`;
+  };
+
+  const canScheduleClasses = user.role === 'admin' || user.role === 'faculty';
+  const filteredClasses = getFilteredClasses();
+
+  if (!isOpen) return null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold text-black dark:text-white flex items-center">
-          <Video className="h-5 w-5 mr-2 text-[#22c55e]" />
-          Virtual Classroom
-        </h3>
-        {canSchedule && (
-          <button 
-            onClick={() => setShowScheduleModal(true)} 
-            disabled={!googleToken}
-            className="btn-primary flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Schedule Class
-          </button>
-        )}
-      </div>
-      
-      {/* Google Authentication */}
-      {canSchedule && (
-        <GoogleAuth onAuthSuccess={(token) => setGoogleToken(token)} />
-      )}
-
-      {/* Upcoming Classes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {classes.filter(c => c.status === 'scheduled').map((classItem) => (
-          <div key={classItem.id} className="bg-white dark:bg-black border border-[#22c55e] rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-300">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h4 className="text-lg font-semibold text-black dark:text-white">{classItem.title}</h4>
-                <p className="text-[#22c55e] font-medium">{classItem.subject}</p>
-              </div>
-              <span className="bg-[#22c55e]/10 text-[#22c55e] px-3 py-1 rounded-full text-sm font-medium">
-                {classItem.status}
-              </span>
-            </div>
-
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center text-sm text-black dark:text-white">
-                <Calendar className="h-4 w-4 mr-2 text-[#22c55e]" />
-                {new Date(classItem.date).toLocaleDateString()} at {classItem.time}
-              </div>
-              <div className="flex items-center text-sm text-black dark:text-white">
-                <Clock className="h-4 w-4 mr-2 text-[#22c55e]" />
-                {classItem.duration} minutes
-              </div>
-              <div className="flex items-center text-sm text-black dark:text-white">
-                <Users className="h-4 w-4 mr-2 text-[#22c55e]" />
-                {classItem.students} students enrolled
-              </div>
-            </div>
-
-            <div className="flex space-x-2">
-              <button
-                onClick={() => window.open(classItem.meetLink, '_blank')}
-                className="flex-1 bg-[#22c55e] hover:bg-[#16a34a] text-white py-2 px-4 rounded-lg transition-colors duration-200 flex items-center justify-center"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                Join Meeting
-              </button>
-              <button
-                onClick={() => navigator.clipboard.writeText(classItem.meetLink)}
-                className="bg-white border border-[#22c55e] text-[#22c55e] hover:bg-[#22c55e] hover:text-white py-2 px-4 rounded-lg transition-colors duration-200"
-              >
-                <Link className="h-4 w-4" />
-              </button>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className={`w-full max-w-6xl h-[90vh] rounded-lg shadow-xl flex flex-col ${
+        isDarkMode ? 'bg-gray-800' : 'bg-white'
+      }`}>
+        {/* Header */}
+        <div className={`flex items-center justify-between p-6 border-b ${
+          isDarkMode ? 'border-gray-700' : 'border-gray-200'
+        }`}>
+          <div className="flex items-center space-x-3">
+            <img 
+              src={currentInstitute.logo} 
+              alt={currentInstitute.name}
+              className="w-8 h-8 rounded-full"
+            />
+            <div>
+              <h2 className={`text-xl font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Virtual Classroom
+              </h2>
+              <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {currentInstitute.name} - Online Learning Platform
+              </p>
             </div>
           </div>
-        ))}
-      </div>
+          <div className="flex items-center space-x-2">
+            {canScheduleClasses && (
+              <button
+                onClick={() => setShowScheduleModal(true)}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+              >
+                <Plus className="w-4 h-4 inline mr-2" />
+                Schedule Class
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              className={`p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 ${
+                isDarkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
 
-      {/* Recent Classes */}
-      {classes.filter(c => c.status === 'completed').length > 0 && (
-        <div>
-          <h4 className="text-lg font-semibold text-black dark:text-white mb-4">Recent Classes</h4>
-          <div className="space-y-3">
-            {classes.filter(c => c.status === 'completed').map((classItem) => (
-              <div key={classItem.id} className="bg-white dark:bg-black border border-[#A5D6A7] rounded-lg p-4 opacity-75">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h5 className="font-medium text-black dark:text-white">{classItem.title}</h5>
-                    <p className="text-sm text-[#333333] dark:text-gray-300">{classItem.subject}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm text-black dark:text-white">{new Date(classItem.date).toLocaleDateString()}</p>
-                    <span className="text-xs text-[#66BB6A]">Completed</span>
-                  </div>
-                </div>
-              </div>
+        {/* Tabs */}
+        <div className={`p-4 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+          <div className="flex space-x-1">
+            {['upcoming', 'ongoing', 'completed', 'all'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-blue-500 text-white'
+                    : isDarkMode 
+                      ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
+                      : 'text-gray-500 hover:text-gray-900 hover:bg-gray-100'
+                }`}
+              >
+                {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                {tab === 'ongoing' && (
+                  <span className="ml-2 w-2 h-2 bg-red-500 rounded-full inline-block animate-pulse"></span>
+                )}
+              </button>
             ))}
           </div>
         </div>
-      )}
 
-      {showScheduleModal && <ScheduleClassModal />}
-      
-      {/* Calendar View */}
-      <div className="mt-8">
-        <h4 className="text-lg font-semibold text-black dark:text-white mb-4">Class Calendar</h4>
-        <ClassCalendar classes={classes} />
+        {/* Classes List */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {filteredClasses.length === 0 ? (
+            <div className="text-center py-12">
+              <Video className={`w-16 h-16 mx-auto mb-4 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`} />
+              <h3 className={`text-lg font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                No classes found
+              </h3>
+              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                {activeTab === 'upcoming' ? 'No upcoming classes scheduled' : `No ${activeTab} classes`}
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {filteredClasses.map((cls) => {
+                const dateTime = formatDateTime(cls.date, cls.time);
+                const timeUntil = getTimeUntilClass(cls.date, cls.time);
+                const isOngoing = activeTab === 'ongoing' || timeUntil === 'Started';
+                
+                return (
+                  <div
+                    key={cls.id}
+                    className={`p-6 rounded-lg border transition-all ${
+                      isOngoing 
+                        ? 'border-green-500 bg-green-50 dark:bg-green-900/20' 
+                        : isDarkMode 
+                          ? 'border-gray-600 bg-gray-700 hover:bg-gray-600' 
+                          : 'border-gray-200 bg-white hover:bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1">
+                        <h3 className={`font-semibold mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                          {cls.subject}
+                        </h3>
+                        <p className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                          {cls.section && `Section: ${cls.section}`}
+                        </p>
+                      </div>
+                      {isOngoing && (
+                        <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full animate-pulse">
+                          LIVE
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {dateTime.date}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Clock className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {dateTime.time} ({cls.duration} min)
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Users className={`w-4 h-4 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {cls.attendees?.length || 0} attendees
+                        </span>
+                      </div>
+                    </div>
+
+                    {cls.materials?.length > 0 && (
+                      <div className="mb-4">
+                        <h4 className={`text-sm font-medium mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                          Materials:
+                        </h4>
+                        <div className="space-y-1">
+                          {cls.materials.map((material, index) => (
+                            <div
+                              key={index}
+                              className={`flex items-center space-x-2 text-sm ${
+                                isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                              }`}
+                            >
+                              <Download className="w-3 h-3" />
+                              <span>{material.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between">
+                      <div>
+                        {timeUntil !== 'Started' && (
+                          <span className={`text-sm font-medium ${
+                            timeUntil.includes('m') && !timeUntil.includes('h') && !timeUntil.includes('d')
+                              ? 'text-orange-500'
+                              : isDarkMode ? 'text-gray-400' : 'text-gray-500'
+                          }`}>
+                            {timeUntil === 'Started' ? 'In Progress' : `Starts in ${timeUntil}`}
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => joinClass(cls.id)}
+                        disabled={!isOngoing && timeUntil !== 'Started'}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          isOngoing || timeUntil === 'Started'
+                            ? 'bg-green-500 text-white hover:bg-green-600'
+                            : 'bg-blue-500 text-white hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed'
+                        }`}
+                      >
+                        <ExternalLink className="w-4 h-4 inline mr-1" />
+                        {isOngoing || timeUntil === 'Started' ? 'Join Now' : 'Join Class'}
+                      </button>
+                    </div>
+
+                    {user.role === 'parent' && (
+                      <div className={`mt-3 pt-3 border-t text-xs ${
+                        isDarkMode ? 'border-gray-600 text-gray-400' : 'border-gray-200 text-gray-500'
+                      }`}>
+                        View-only access for parent monitoring
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Schedule Class Modal */}
+      {showScheduleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60 p-4">
+          <div className={`w-full max-w-2xl rounded-lg shadow-xl ${
+            isDarkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className={`p-6 border-b ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Schedule Virtual Class
+              </h3>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  value={newClass.subject}
+                  onChange={(e) => setNewClass(prev => ({ ...prev, subject: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  placeholder="Enter subject name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={newClass.date}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, date: e.target.value }))}
+                    min={new Date().toISOString().split('T')[0]}
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Time
+                  </label>
+                  <input
+                    type="time"
+                    value={newClass.time}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, time: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Duration (minutes)
+                  </label>
+                  <input
+                    type="number"
+                    value={newClass.duration}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, duration: parseInt(e.target.value) }))}
+                    min="15"
+                    max="180"
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-2 ${
+                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    Section/Class
+                  </label>
+                  <input
+                    type="text"
+                    value={newClass.section}
+                    onChange={(e) => setNewClass(prev => ({ ...prev, section: e.target.value }))}
+                    className={`w-full px-3 py-2 border rounded-lg ${
+                      isDarkMode 
+                        ? 'bg-gray-700 border-gray-600 text-white' 
+                        : 'bg-white border-gray-300 text-gray-900'
+                    }`}
+                    placeholder="e.g., CSE-A, Grade 10"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${
+                  isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                }`}>
+                  Google Meet Link (Optional)
+                </label>
+                <input
+                  type="url"
+                  value={newClass.meetLink}
+                  onChange={(e) => setNewClass(prev => ({ ...prev, meetLink: e.target.value }))}
+                  className={`w-full px-3 py-2 border rounded-lg ${
+                    isDarkMode 
+                      ? 'bg-gray-700 border-gray-600 text-white' 
+                      : 'bg-white border-gray-300 text-gray-900'
+                  }`}
+                  placeholder="Leave empty to auto-generate"
+                />
+              </div>
+            </div>
+            <div className={`p-6 border-t flex justify-end space-x-3 ${
+              isDarkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <button
+                onClick={() => setShowScheduleModal(false)}
+                className={`px-4 py-2 rounded-lg ${
+                  isDarkMode 
+                    ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' 
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={scheduleClass}
+                disabled={!newClass.subject.trim() || !newClass.date || !newClass.time}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Schedule Class
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

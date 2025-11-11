@@ -1,5 +1,5 @@
 import { AlertCircle, ArrowRight, CheckCircle, Eye, EyeOff, GraduationCap, Loader, Lock, Mail, Moon, Sun, User, UserCog, Users, Building } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getAllInstitutes, setCurrentInstitute, applyInstituteTheme } from '../utils/instituteConfig';
@@ -9,9 +9,23 @@ const Login = () => {
     email: '',
     password: '',
     role: 'student',
-    institute: 'jntuh',
+    institute: '',
     rememberMe: false
   });
+  const [showInstituteDropdown, setShowInstituteDropdown] = useState(false);
+  const dropdownRef = useRef(null);
+  
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowInstituteDropdown(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -25,6 +39,10 @@ const Login = () => {
   // Form validation
   const validateForm = () => {
     const newErrors = {};
+    
+    if (!formData.institute) {
+      newErrors.institute = 'Please select an institute';
+    }
     
     if (!formData.email) {
       newErrors.email = 'Email is required';
@@ -219,41 +237,69 @@ const Login = () => {
           {/* Login form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="card-elevated space-y-6">
-              {/* Institute selection */}
+              {/* Institute selection dropdown */}
               <div className="space-y-3">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Select Institute
                 </label>
-                <div className="space-y-2">
-                  {getAllInstitutes().map((institute) => (
-                    <label
-                      key={institute.id}
-                      className={`flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 hover:scale-105 ${
-                        formData.institute === institute.id
-                          ? `${institute.branding.bgColor} ${institute.branding.textColor} ${institute.branding.borderColor}`
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="institute"
-                        value={institute.id}
-                        checked={formData.institute === institute.id}
-                        onChange={(e) => {
-                          handleChange(e);
-                          applyInstituteTheme(e.target.value);
-                        }}
-                        className="sr-only"
-                      />
-                      <Building className={`h-5 w-5 mr-3 ${formData.institute === institute.id ? 'scale-110' : ''} transition-transform duration-200`} />
-                      <div className="flex-1">
-                        <p className="font-medium">{institute.name}</p>
-                        <p className="text-sm opacity-75">{institute.shortName} • {institute.type}</p>
-                        <p className="text-xs opacity-60">{institute.tagline}</p>
-                      </div>
-                    </label>
-                  ))}
+                <div className="relative" ref={dropdownRef}>
+                  <button
+                    type="button"
+                    onClick={() => setShowInstituteDropdown(!showInstituteDropdown)}
+                    className={`w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-2 rounded-xl text-left transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 ${
+                      errors.institute ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <Building className="h-5 w-5 text-gray-400 dark:text-gray-500" />
+                      <span className="text-gray-900 dark:text-white">
+                        {formData.institute 
+                          ? getAllInstitutes().find(inst => inst.id === formData.institute)?.name 
+                          : 'Choose your institute'
+                        }
+                      </span>
+                    </div>
+                    <div className={`transform transition-transform duration-200 ${
+                      showInstituteDropdown ? 'rotate-180' : 'rotate-0'
+                    }`}>
+                      ▼
+                    </div>
+                  </button>
+                  
+                  {showInstituteDropdown && (
+                    <div className="absolute z-10 w-full mt-2 bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-600 rounded-xl shadow-lg max-h-60 overflow-y-auto">
+                      {getAllInstitutes().map((institute) => (
+                        <button
+                          key={institute.id}
+                          type="button"
+                          onClick={() => {
+                            setFormData(prev => ({ ...prev, institute: institute.id }));
+                            applyInstituteTheme(institute.id);
+                            setShowInstituteDropdown(false);
+                          }}
+                          className={`w-full flex items-center p-4 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200 first:rounded-t-xl last:rounded-b-xl ${
+                            formData.institute === institute.id 
+                              ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400' 
+                              : 'text-gray-900 dark:text-white'
+                          }`}
+                        >
+                          <Building className="h-5 w-5 mr-3 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{institute.name}</p>
+                            <p className="text-sm opacity-75 truncate">{institute.shortName} • {institute.type}</p>
+                            <p className="text-xs opacity-60 truncate">{institute.tagline}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
+                {errors.institute && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1 mt-1">
+                    <AlertCircle className="h-4 w-4" />
+                    <span>{errors.institute}</span>
+                  </p>
+                )}
               </div>
 
               {/* Role selection */}

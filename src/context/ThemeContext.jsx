@@ -11,29 +11,47 @@ export const useTheme = () => {
 };
 
 export const ThemeProvider = ({ children }) => {
-  const [isDark, setIsDark] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    const savedTheme = localStorage.getItem('theme');
+    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    return savedTheme === 'dark' || (!savedTheme && systemPrefersDark);
+  });
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark') {
-      setIsDark(true);
-      document.documentElement.classList.add('dark');
+    // Apply theme immediately on mount
+    const root = document.documentElement;
+    root.style.transition = 'background-color 0.3s ease, color 0.3s ease';
+    
+    if (isDark) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
     }
-  }, []);
+  }, [isDark]);
 
   const toggleTheme = () => {
-    setIsDark(!isDark);
-    if (!isDark) {
+    const newTheme = !isDark;
+    setIsDark(newTheme);
+    
+    // Add smooth transition
+    document.documentElement.style.transition = 'all 0.3s ease';
+    
+    if (newTheme) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+    
+    // Remove transition after animation
+    setTimeout(() => {
+      document.documentElement.style.transition = '';
+    }, 300);
   };
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme }}>
+    <ThemeContext.Provider value={{ isDark, isDarkMode: isDark, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

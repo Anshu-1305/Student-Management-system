@@ -15,13 +15,13 @@ const Login = () => {
   const [showInstituteDropdown, setShowInstituteDropdown] = useState(false);
   const dropdownRef = useRef(null);
   
-  // Close dropdown when clicking outside
+  // Close dropdown when clicking outsidejfkfjdjf
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowInstituteDropdown(false);
       }
-    };
+    };h
     
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);

@@ -3,6 +3,7 @@ import { Menu, Bell, User, Moon, Sun, LogOut, Search, Settings, ChevronDown, Mes
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useBranding } from '../context/BrandingContext';
+import { useNavigate } from 'react-router-dom';
 import realTimeService from '../services/realTimeService';
 
 const Navbar = ({ 
@@ -13,14 +14,16 @@ const Navbar = ({
   unreadMessages = 0,
   unreadNotifications = 0
 }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { isDark, toggleTheme } = useTheme();
   const { branding } = useBranding();
+  const navigate = useNavigate();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showMobileSearch, setShowMobileSearch] = useState(false);
   const [realTimeUnreadCount, setRealTimeUnreadCount] = useState(0);
   const [realTimeMessageCount, setRealTimeMessageCount] = useState(0);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -34,39 +37,124 @@ const Navbar = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showProfileMenu]);
 
-  // Setup real-time listeners
+  // Setup real-time listeners with delay for faster initial load
   useEffect(() => {
     if (user) {
-      updateRealTimeCounts();
-      setupRealTimeListeners();
+      // Initialize real-time service if not already initialized
+      try {
+        if (realTimeService && typeof realTimeService.init === 'function') {
+          realTimeService.init();
+        }
+      } catch (error) {
+        console.error('Failed to initialize real-time service:', error);
+        // Set default values to prevent errors
+        setRealTimeUnreadCount(0);
+        setRealTimeMessageCount(0);
+        return;
+      }
+      
+      // Defer real-time setup to avoid blocking initial render
+      const timer = setTimeout(() => {
+        try {
+          if (realTimeService && typeof realTimeService.getUnreadCount === 'function') {
+            updateRealTimeCounts();
+          }
+          if (realTimeService && typeof realTimeService.on === 'function') {
+            setupRealTimeListeners();
+          }
+        } catch (error) {
+          console.error('Failed to setup real-time listeners:', error);
+          // Set default values to prevent errors
+          setRealTimeUnreadCount(0);
+          setRealTimeMessageCount(0);
+        }
+      }, 100); // Small delay to let UI render first
+      
+      return () => {
+        clearTimeout(timer);
+        try {
+          if (realTimeService && typeof realTimeService.off === 'function') {
+            realTimeService.off('newNotification', updateRealTimeCounts);
+            realTimeService.off('newMessage', updateRealTimeCounts);
+            realTimeService.off('notificationRead', updateRealTimeCounts);
+          }
+        } catch (error) {
+          console.error('Failed to cleanup real-time listeners:', error);
+        }
+      };
     }
-    
-    return () => {
-      realTimeService.off('newNotification', updateRealTimeCounts);
-      realTimeService.off('newMessage', updateRealTimeCounts);
-      realTimeService.off('notificationRead', updateRealTimeCounts);
-    };
   }, [user]);
 
   const setupRealTimeListeners = () => {
-    realTimeService.on('newNotification', updateRealTimeCounts);
-    realTimeService.on('newMessage', updateRealTimeCounts);
-    realTimeService.on('notificationRead', updateRealTimeCounts);
+    try {
+      if (realTimeService && typeof realTimeService.on === 'function') {
+        realTimeService.on('newNotification', updateRealTimeCounts);
+        realTimeService.on('newMessage', updateRealTimeCounts);
+        realTimeService.on('notificationRead', updateRealTimeCounts);
+      } else {
+        console.warn('Real-time service or on method not available');
+      }
+    } catch (error) {
+      console.error('Failed to setup real-time listeners:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      setShowProfileMenu(false);
+      // The ProtectedRoute will automatically redirect to login
+    } catch (error) {
+      console.error('Logout failed:', error);
+      setIsLoggingOut(false); // Only set to false if there's an error
+    }
+    // Don't set to false on success - let the redirect handle it
   };
 
   const updateRealTimeCounts = () => {
     if (user) {
-      const notificationCount = realTimeService.getUnreadCount(user.role, user.email);
-      setRealTimeUnreadCount(notificationCount);
-      
-      // Get contacts and count unread messages
-      const contacts = realTimeService.getContacts(user.role, user.email, user.instituteId);
-      let messageCount = 0;
-      contacts.forEach(contact => {
-        const chatId = [user.email, contact.email].sort().join('-');
-        messageCount += realTimeService.getChatUnreadCount(chatId);
-      });
-      setRealTimeMessageCount(messageCount);
+      try {
+        // Check if realTimeService exists and has required methods
+        if (!realTimeService) {
+          console.warn('Real-time service not available');
+          setRealTimeUnreadCount(0);
+          setRealTimeMessageCount(0);
+          return;
+        }
+
+        let notificationCount = 0;
+        if (typeof realTimeService.getUnreadCount === 'function') {
+          notificationCount = realTimeService.getUnreadCount(user.role, user.email);
+        } else {
+          console.warn('getUnreadCount method not available');
+        }
+        setRealTimeUnreadCount(notificationCount);
+        
+        // Get contacts and count unread messages
+        let messageCount = 0;
+        if (typeof realTimeService.getContacts === 'function') {
+          try {
+            const contacts = realTimeService.getContacts(user.role, user.email, user.instituteId);
+            if (contacts && Array.isArray(contacts)) {
+              messageCount = contacts.reduce((count, contact) => {
+                return count + (contact.unreadCount || 0);
+              }, 0);
+            }
+          } catch (error) {
+            console.warn('Error processing contacts:', error);
+          }
+        } else {
+          console.warn('getContacts method not available');
+        }
+        
+        setRealTimeMessageCount(messageCount);
+      } catch (error) {
+        console.error('Failed to update real-time counts:', error);
+        // Set default values to prevent errors
+        setRealTimeUnreadCount(0);
+        setRealTimeMessageCount(0);
+      }
     }
   };
 
@@ -217,9 +305,9 @@ const Navbar = ({
               aria-label="Messages"
             >
               <MessageCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              {(realTimeMessageCount || unreadMessages) > 0 && (
+              {(realTimeMessageCount || unreadMessages || 0) > 0 && (
                 <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-blue-500 to-blue-600 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse shadow-lg">
-                  {(realTimeMessageCount || unreadMessages) > 9 ? '9+' : (realTimeMessageCount || unreadMessages)}
+                  {(realTimeMessageCount || unreadMessages || 0) > 9 ? '9+' : (realTimeMessageCount || unreadMessages || 0)}
                 </span>
               )}
             </button>
@@ -231,9 +319,9 @@ const Navbar = ({
               aria-label="Notifications"
             >
               <Bell className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-              {(realTimeUnreadCount || unreadNotifications) > 0 && (
+              {(realTimeUnreadCount || unreadNotifications || 0) > 0 && (
                 <span className="absolute -top-1 -right-1 h-5 w-5 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full flex items-center justify-center font-bold animate-pulse shadow-lg">
-                  {(realTimeUnreadCount || unreadNotifications) > 9 ? '9+' : (realTimeUnreadCount || unreadNotifications)}
+                  {(realTimeUnreadCount || unreadNotifications || 0) > 9 ? '9+' : (realTimeUnreadCount || unreadNotifications || 0)}
                 </span>
               )}
             </button>
@@ -281,7 +369,13 @@ const Navbar = ({
                   </div>
                   
                   <div className="py-2">
-                    <button className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center space-x-3">
+                    <button 
+                      onClick={() => {
+                        setShowProfileMenu(false);
+                        navigate('/profile');
+                      }}
+                      className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors flex items-center space-x-3"
+                    >
                       <User className="w-4 h-4" />
                       <span>Profile Settings</span>
                     </button>
@@ -291,11 +385,21 @@ const Navbar = ({
                     </button>
                     <div className="border-t border-gray-100 dark:border-gray-800 my-2"></div>
                     <button
-                      onClick={logout}
-                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center space-x-3"
+                      onClick={handleLogout}
+                      disabled={isLoggingOut}
+                      className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center space-x-3 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <LogOut className="w-4 h-4" />
-                      <span>Sign Out</span>
+                      {isLoggingOut ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                          <span>Signing out...</span>
+                        </>
+                      ) : (
+                        <>
+                          <LogOut className="w-4 h-4" />
+                          <span>Sign Out</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>

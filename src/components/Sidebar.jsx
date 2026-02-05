@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { X, MessageCircle, Users, UserCheck, GraduationCap, BarChart3, Bell, Settings, Calendar, BookOpen, Home, TrendingUp, Award, FileText, Video, ChevronRight } from 'lucide-react';
+import { X, MessageCircle, Users, UserCheck, GraduationCap, BarChart3, Bell, Settings, Calendar, BookOpen, Home, TrendingUp, Award, FileText, Video, ChevronRight, User } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useDashboard } from '../context/DashboardContext';
+import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
   const { user } = useAuth();
   const { isDark } = useTheme();
   const { activeSection, navigateToSection } = useDashboard();
+  const navigate = useNavigate();
   const [hoveredItem, setHoveredItem] = useState(null);
 
   // Close sidebar on escape key
@@ -42,6 +44,7 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
           { icon: TrendingUp, label: 'Reports', section: 'reports', color: 'text-cyan-500' },
           { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '3' },
           { icon: Settings, label: 'Settings', section: 'settings', color: 'text-gray-500' },
+          { icon: User, label: 'Profile', section: 'profile', color: 'text-emerald-500', isProfile: true },
           { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '2' },
         ];
       case 'faculty':
@@ -55,6 +58,7 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
           { icon: FileText, label: 'Reports', section: 'reports', color: 'text-cyan-500' },
           { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '5' },
           { icon: Video, label: 'Virtual Class', section: 'virtual', color: 'text-purple-500' },
+          { icon: User, label: 'Profile', section: 'profile', color: 'text-emerald-500', isProfile: true },
           { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '8' },
         ];
       case 'student':
@@ -70,7 +74,7 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
           { icon: BarChart3, label: 'My Reports', section: 'reports', color: 'text-cyan-500' },
           { icon: Video, label: 'Virtual Class', section: 'virtual', color: 'text-purple-500' },
           { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '2' },
-          { icon: Settings, label: 'Profile', section: 'profile', color: 'text-gray-500' },
+          { icon: User, label: 'Profile', section: 'profile', color: 'text-emerald-500', isProfile: true },
           { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '12' },
         ];
       case 'parent':
@@ -82,6 +86,7 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
           { icon: Calendar, label: 'Timetable', section: 'timetable', color: 'text-orange-500' },
           { icon: TrendingUp, label: 'Fee Status', section: 'fees', color: 'text-red-500' },
           { icon: Bell, label: 'Notifications', section: 'notifications', color: 'text-red-500', badge: '4' },
+          { icon: User, label: 'Profile', section: 'profile', color: 'text-emerald-500', isProfile: true },
           { icon: MessageCircle, label: 'Chat', section: 'chat', color: 'text-emerald-500', isChat: true, badge: '3' },
         ];
       default:
@@ -94,6 +99,9 @@ const Sidebar = ({ isOpen, onClose, showChatOnly, setShowChatOnly }) => {
   const handleItemClick = (item) => {
     if (item.isChat) {
       setShowChatOnly && setShowChatOnly(true);
+    } else if (item.isProfile) {
+      navigate('/profile');
+      onClose();
     } else {
       setShowChatOnly && setShowChatOnly(false);
       navigateToSection(item.section);

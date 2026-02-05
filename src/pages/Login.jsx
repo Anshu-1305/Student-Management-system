@@ -1,30 +1,39 @@
-import { AlertCircle, ArrowRight, CheckCircle, Eye, EyeOff, GraduationCap, Loader, Lock, Mail, Moon, Sun, User, UserCog, Users, Building } from 'lucide-react';
+import { AlertCircle, ArrowRight, CheckCircle, Eye, EyeOff, GraduationCap, Loader, Lock, Mail, Moon, Sun, User, UserCog, Users, Building, Phone, Calendar, MapPin, Wifi, WifiOff } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { getAllInstitutes, setCurrentInstitute, applyInstituteTheme } from '../utils/instituteConfig';
+import LoadingOverlay from '../components/LoadingOverlay';
+import useNetworkStatus from '../hooks/useNetworkStatus';
 
 const Login = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
+    confirmPassword: '',
+    name: '',
     role: 'student',
     institute: '',
+    branch: '',
+    year: '',
+    phone: '',
+    gender: '',
+    age: '',
+    address: '',
     rememberMe: false
   });
   const [showInstituteDropdown, setShowInstituteDropdown] = useState(false);
   const dropdownRef = useRef(null);
   
-  // Close dropdown when clicking outsidejfkfjdjf
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowInstituteDropdown(false);
       }
-    };h
+    };
     
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, []);
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
@@ -33,8 +42,9 @@ const Login = () => {
   const [focusedField, setFocusedField] = useState(null);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  const { login } = useAuth();
+  const { login, signUp } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const { isOnline, networkError } = useNetworkStatus();
 
   // Form validation
   const validateForm = () => {
@@ -55,6 +65,43 @@ const Login = () => {
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
+
+    // Additional validation for signup
+    if (!isLogin) {
+      if (!formData.name) {
+        newErrors.name = 'Name is required';
+      }
+      
+      if (!formData.confirmPassword) {
+        newErrors.confirmPassword = 'Please confirm your password';
+      } else if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
+      
+      if (!formData.phone) {
+        newErrors.phone = 'Phone number is required';
+      } else if (!/^\d{10}$/.test(formData.phone.replace(/\D/g, ''))) {
+        newErrors.phone = 'Please enter a valid 10-digit phone number';
+      }
+      
+      if (!formData.gender) {
+        newErrors.gender = 'Please select your gender';
+      }
+      
+      if (!formData.age) {
+        newErrors.age = 'Age is required';
+      } else if (parseInt(formData.age) < 16 || parseInt(formData.age) > 100) {
+        newErrors.age = 'Age must be between 16 and 100';
+      }
+      
+      if (formData.role === 'student' && !formData.branch) {
+        newErrors.branch = 'Branch is required for students';
+      }
+      
+      if (formData.role === 'student' && !formData.year) {
+        newErrors.year = 'Year is required for students';
+      }
+    }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -65,35 +112,66 @@ const Login = () => {
     
     if (!validateForm()) return;
     
-    setIsLoading(true);
     setErrors({});
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
     
     try {
       // Set selected institute
       setCurrentInstitute(formData.institute);
       applyInstituteTheme(formData.institute);
       
-      // Mock authentication - in real app, this would call an API
-      const mockUser = {
-        id: formData.role === 'admin' ? 1 : formData.role === 'faculty' ? 2 : 36,
-        name: formData.role === 'admin' ? 'Admin User' : 
-              formData.role === 'faculty' ? 'Sumalatha' : 
-              formData.role === 'parent' ? 'Parent User' : 'Anshu Kumar',
-        email: formData.email,
-        role: formData.role,
-        instituteId: formData.institute
-      };
+      let result;
       
-      setShowSuccess(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
-      login(mockUser);
+      if (isLogin) {
+        // For admin role, check hardcoded credentials first
+        if (formData.role === 'admin') {
+          if (formData.email !== 'ak1305.anshukumar@gmail.com' || formData.password !== 'AdminSMS@PEC') {
+            setErrors({ general: 'Invalid admin credentials. Only the hardcoded admin credentials are allowed.' });
+            return;
+          }
+        }
+        
+        // Login with Firebase (includes role validation)
+        result = await login(formData.email, formData.password);
+        
+        // Check if logged in user role matches selected role
+        if (result.success && result.user) {
+          if (result.user.role !== formData.role) {
+            // Force logout if roles don't match
+            await login('logout@temp.com', 'temp'); // This will clear the session
+            setErrors({ 
+              general: `This email is registered as a ${result.user.role}. Please select the correct role to login.` 
+            });
+            return;
+          }
+        }
+      } else {
+        // Sign up with Firebase
+        const userData = {
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          role: formData.role,
+          institute: formData.institute,
+          branch: formData.branch,
+          year: formData.year,
+          phone: formData.phone,
+          gender: formData.gender,
+          age: formData.age,
+          address: formData.address,
+          rememberMe: formData.rememberMe
+        };
+        result = await signUp(userData);
+      }
+      
+      if (result.success) {
+        setShowSuccess(true);
+        // Navigation will be handled by the AuthContext and protected routes
+      } else {
+        setErrors({ general: result.error });
+      }
     } catch (error) {
-      setErrors({ general: 'Login failed. Please try again.' });
-    } finally {
-      setIsLoading(false);
+      console.error('Authentication error:', error);
+      setErrors({ general: isLogin ? 'Login failed. Please try again.' : 'Signup failed. Please try again.' });
     }
   };
 
@@ -151,6 +229,31 @@ const Login = () => {
           <Moon className="h-6 w-6 text-gray-600" />
         )}
       </button>
+
+      {/* Network status indicator */}
+      <div className="absolute top-4 left-4 z-10 flex items-center space-x-2 px-3 py-2 rounded-xl backdrop-blur-sm bg-white/20 dark:bg-black/20 border border-white/30 dark:border-gray-700/30">
+        {isOnline ? (
+          <>
+            <Wifi className="h-4 w-4 text-green-500" />
+            <span className="text-xs text-green-600 dark:text-green-400 font-medium">Online</span>
+          </>
+        ) : (
+          <>
+            <WifiOff className="h-4 w-4 text-red-500" />
+            <span className="text-xs text-red-600 dark:text-red-400 font-medium">Offline</span>
+          </>
+        )}
+      </div>
+
+      {/* Network error banner */}
+      {networkError && (
+        <div className="absolute top-20 left-4 right-4 z-10 bg-red-500/90 backdrop-blur-sm border border-red-200 dark:border-red-800 rounded-xl p-3 animate-bounce-in">
+          <div className="flex items-center space-x-2">
+            <WifiOff className="h-5 w-5 text-white" />
+            <p className="text-white text-sm font-medium">{networkError}</p>
+          </div>
+        </div>
+      )}
 
       {/* Left side - Branding (hidden on mobile) */}
       <div className="hidden lg:flex lg:w-1/2 relative z-10 flex-col justify-center items-center p-12">
@@ -236,7 +339,7 @@ const Login = () => {
 
           {/* Login form */}
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="card-elevated space-y-6">
+            <div className="backdrop-blur-xl bg-white/10 dark:bg-black/20 border border-white/20 dark:border-white/10 rounded-2xl shadow-2xl p-8 space-y-6">
               {/* Institute selection dropdown */}
               <div className="space-y-3">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -246,13 +349,13 @@ const Login = () => {
                   <button
                     type="button"
                     onClick={() => setShowInstituteDropdown(!showInstituteDropdown)}
-                    className={`w-full flex items-center justify-between px-4 py-3 bg-white dark:bg-gray-800 border-2 rounded-xl text-left transition-all duration-200 hover:border-gray-400 dark:hover:border-gray-500 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 ${
+                    className={`w-full flex items-center justify-between px-4 py-3 bg-white/20 dark:bg-white/10 backdrop-blur-sm border-2 border-white/30 dark:border-white/20 rounded-xl text-left transition-all duration-200 hover:border-white/50 dark:hover:border-white/30 focus:outline-none focus:ring-4 focus:ring-white/20 dark:focus:ring-white/10 focus:border-white/60 dark:focus:border-white/40 text-white placeholder-white/70 ${
                       errors.institute ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center space-x-3">
-                      <Building className="h-5 w-5 text-gray-400 dark:text-gray-500" />
-                      <span className="text-gray-900 dark:text-white">
+                      <Building className="h-5 w-5 text-white/70" />
+                      <span className="text-white">
                         {formData.institute 
                           ? getAllInstitutes().find(inst => inst.id === formData.institute)?.name 
                           : 'Choose your institute'
@@ -339,17 +442,15 @@ const Login = () => {
                 <label htmlFor="email" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                   Email Address
                 </label>
-                <div className="input-group">
-                  <Mail className="input-icon" />
+                <div className="relative">
+                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-white/50" />
                   <input
                     id="email"
                     name="email"
                     type="email"
                     value={formData.email}
                     onChange={handleChange}
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
-                    className={`input-field has-icon ${errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                    className={`w-full pl-10 pr-4 py-3 bg-white/20 dark:bg-white/10 backdrop-blur-sm border-2 border-white/30 dark:border-white/20 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-white/20 dark:focus:ring-white/10 focus:border-white/60 dark:focus:border-white/40 text-white placeholder-white/70 ${errors.email ? 'border-red-500' : ''}`}
                     placeholder="Enter your email"
                     required
                   />
@@ -397,6 +498,238 @@ const Login = () => {
                 )}
               </div>
 
+              {/* Additional signup fields */}
+              {!isLogin && (
+                <>
+                  {/* Name field */}
+                  <div className="space-y-2">
+                    <label htmlFor="name" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Full Name
+                    </label>
+                    <div className="input-group">
+                      <User className="input-icon" />
+                      <input
+                        id="name"
+                        name="name"
+                        type="text"
+                        value={formData.name}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('name')}
+                        onBlur={() => setFocusedField(null)}
+                        className={`input-field has-icon ${errors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                        placeholder="Enter your full name"
+                        required
+                      />
+                    </div>
+                    {errors.name && (
+                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{errors.name}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Confirm Password field */}
+                  <div className="space-y-2">
+                    <label htmlFor="confirmPassword" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Confirm Password
+                    </label>
+                    <div className="input-group">
+                      <Lock className="input-icon" />
+                      <input
+                        id="confirmPassword"
+                        name="confirmPassword"
+                        type={showPassword ? 'text' : 'password'}
+                        value={formData.confirmPassword}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('confirmPassword')}
+                        onBlur={() => setFocusedField(null)}
+                        className={`input-field has-icon pr-12 ${errors.confirmPassword ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                        placeholder="Confirm your password"
+                        required
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{errors.confirmPassword}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Phone field */}
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Phone Number
+                    </label>
+                    <div className="input-group">
+                      <Phone className="input-icon" />
+                      <input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={formData.phone}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('phone')}
+                        onBlur={() => setFocusedField(null)}
+                        className={`input-field has-icon ${errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                        placeholder="Enter your 10-digit phone number"
+                        maxLength="10"
+                        required
+                      />
+                    </div>
+                    {errors.phone && (
+                      <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                        <AlertCircle className="h-4 w-4" />
+                        <span>{errors.phone}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Gender and Age fields */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <label htmlFor="gender" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Gender
+                      </label>
+                      <select
+                        id="gender"
+                        name="gender"
+                        value={formData.gender}
+                        onChange={handleChange}
+                        className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 ${
+                          errors.gender ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
+                        }`}
+                        required
+                      >
+                        <option value="">Select</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                      {errors.gender && (
+                        <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{errors.gender}</span>
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <label htmlFor="age" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                        Age
+                      </label>
+                      <div className="input-group">
+                        <Calendar className="input-icon" />
+                        <input
+                          id="age"
+                          name="age"
+                          type="number"
+                          value={formData.age}
+                          onChange={handleChange}
+                          onFocus={() => setFocusedField('age')}
+                          onBlur={() => setFocusedField(null)}
+                          className={`input-field has-icon ${errors.age ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : ''}`}
+                          placeholder="Age"
+                          min="16"
+                          max="100"
+                          required
+                        />
+                      </div>
+                      {errors.age && (
+                        <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                          <AlertCircle className="h-4 w-4" />
+                          <span>{errors.age}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Student-specific fields */}
+                  {formData.role === 'student' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label htmlFor="branch" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          Branch
+                        </label>
+                        <select
+                          id="branch"
+                          name="branch"
+                          value={formData.branch}
+                          onChange={handleChange}
+                          className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 ${
+                            errors.branch ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                          required
+                        >
+                          <option value="">Select Branch</option>
+                          <option value="CSE">Computer Science</option>
+                          <option value="ECE">Electronics</option>
+                          <option value="EEE">Electrical</option>
+                          <option value="MECH">Mechanical</option>
+                          <option value="CIVIL">Civil</option>
+                        </select>
+                        {errors.branch && (
+                          <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>{errors.branch}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <label htmlFor="year" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          Year
+                        </label>
+                        <select
+                          id="year"
+                          name="year"
+                          value={formData.year}
+                          onChange={handleChange}
+                          className={`w-full px-4 py-3 bg-white dark:bg-gray-800 border-2 rounded-xl transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-500 ${
+                            errors.year ? 'border-red-500 focus:border-red-500 focus:ring-red-200' : 'border-gray-300 dark:border-gray-600'
+                          }`}
+                          required
+                        >
+                          <option value="">Select Year</option>
+                          <option value="1">1st Year</option>
+                          <option value="2">2nd Year</option>
+                          <option value="3">3rd Year</option>
+                          <option value="4">4th Year</option>
+                        </select>
+                        {errors.year && (
+                          <p className="text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
+                            <AlertCircle className="h-4 w-4" />
+                            <span>{errors.year}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Address field */}
+                  <div className="space-y-2">
+                    <label htmlFor="address" className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      Address (Optional)
+                    </label>
+                    <div className="input-group">
+                      <MapPin className="input-icon" />
+                      <textarea
+                        id="address"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleChange}
+                        onFocus={() => setFocusedField('address')}
+                        onBlur={() => setFocusedField(null)}
+                        className="input-field has-icon resize-none"
+                        placeholder="Enter your address"
+                        rows="2"
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+
               {/* Remember me */}
               <div className="flex items-center justify-between">
                 <label className="flex items-center space-x-3 cursor-pointer">
@@ -420,22 +753,15 @@ const Login = () => {
               {/* Submit button */}
               <button
                 type="submit"
-                disabled={isLoading}
-                className={`w-full btn-primary py-4 text-lg font-semibold flex items-center justify-center space-x-3 ${
-                  isLoading ? 'opacity-75 cursor-not-allowed' : ''
-                }`}
+                className={`w-full relative py-4 text-lg font-semibold flex items-center justify-center space-x-3 rounded-xl transition-all duration-300 transform hover:scale-105 active:scale-95 hover:shadow-2xl active:shadow-lg bg-gradient-to-r from-primary-600 via-primary-500 to-emerald-600 hover:from-primary-700 hover:via-primary-600 hover:to-emerald-700 text-white shadow-lg backdrop-blur-sm border border-white/20`}
               >
-                {isLoading ? (
-                  <>
-                    <Loader className="w-5 h-5 animate-spin" />
-                    <span>Signing in...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
-                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                  </>
-                )}
+                {/* Glossy overlay effect */}
+                <div className="absolute inset-0 rounded-xl bg-gradient-to-t from-transparent via-white/10 to-white/20 opacity-50 pointer-events-none"></div>
+                
+                <div className="relative flex items-center space-x-3">
+                  <span>{isLogin ? 'Sign In' : 'Create Account'}</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                </div>
               </button>
 
               {/* Toggle form mode */}

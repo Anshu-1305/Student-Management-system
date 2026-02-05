@@ -8,13 +8,16 @@ class RealTimeService {
     this.chatHistory = new Map();
     this.notifications = [];
     this.virtualClasses = [];
-    this.init();
+    this.initialized = false;
   }
 
   init() {
+    if (this.initialized) return;
+    
     // Simulate WebSocket connection
     this.connect();
     this.loadStoredData();
+    this.initialized = true;
   }
 
   connect() {
@@ -52,8 +55,18 @@ class RealTimeService {
   }
 
   emit(event, data) {
-    if (this.listeners.has(event)) {
-      this.listeners.get(event).forEach(callback => callback(data));
+    try {
+      if (this.listeners.has(event)) {
+        this.listeners.get(event).forEach(callback => {
+          try {
+            callback(data);
+          } catch (error) {
+            console.error('Error in event listener:', error);
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Error emitting event:', error);
     }
   }
 

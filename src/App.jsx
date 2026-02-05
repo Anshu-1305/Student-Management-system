@@ -11,19 +11,13 @@ import Login from './pages/Login';
 import StudentDashboard from './pages/StudentDashboard';
 import ParentDashboard from './pages/ParentDashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import Profile from './pages/Profile';
 
 const ProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
+    return null;
   }
   
   if (!user) {
@@ -38,8 +32,11 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
 };
 
 const AppRoutes = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const [showChatOnly, setShowChatOnly] = useState(false);
+  
+  // Don't show loading state during login - let the UI handle it smoothly
+  // This prevents blank screens and ensures smooth transitions
   
   return (
     <Routes>
@@ -79,7 +76,15 @@ const AppRoutes = () => {
       
       <Route path="/super-admin" element={<SuperAdminDashboard />} />
       
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      <Route path="/profile" element={
+        <ProtectedRoute>
+          <Layout showChatOnly={showChatOnly} setShowChatOnly={setShowChatOnly}>
+            <Profile />
+          </Layout>
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/" element={<Navigate to={user ? `/${user.role}` : "/login"} replace />} />
       <Route path="/unauthorized" element={
         <div className="flex items-center justify-center min-h-screen">
           <div className="text-center">

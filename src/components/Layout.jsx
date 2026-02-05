@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import EnhancedChat from './EnhancedChat';
 import NotificationCenter from './NotificationCenter';
 import VirtualClassroom from './VirtualClassroom';
+import iPhoneStyleLoader from './iPhoneStyleLoader';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
 import realTimeService from '../services/realTimeService';
@@ -19,7 +20,7 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const { isDark } = useTheme();
-  const { user } = useAuth();
+  const { user, dashboardLoading } = useAuth();
 
   // Initialize real-time services and load data
   useEffect(() => {
@@ -109,20 +110,24 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
   }
 
   return (
-    <div className="flex h-screen bg-white dark:bg-black transition-colors duration-300 overflow-hidden">
-      {/* Sidebar */}
-      <Sidebar 
-        isOpen={sidebarOpen} 
-        onClose={() => setSidebarOpen(false)} 
-        showChatOnly={showChatOnly}
-        setShowChatOnly={setShowChatOnly}
-        setCurrentView={setCurrentView}
-        onChatClick={() => setShowChat(true)}
-        onNotificationClick={() => setShowNotifications(true)}
-        onVirtualClassClick={() => setShowVirtualClass(true)}
-        unreadMessages={unreadMessages}
-        unreadNotifications={unreadNotifications}
-      />
+    <>
+      {/* iPhone-style loading overlay */}
+      {dashboardLoading && <iPhoneStyleLoader />}
+      
+      <div className="flex h-screen bg-white dark:bg-black transition-colors duration-300 overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar 
+          isOpen={sidebarOpen} 
+          onClose={() => setSidebarOpen(false)} 
+          showChatOnly={showChatOnly}
+          setShowChatOnly={setShowChatOnly}
+          setCurrentView={setCurrentView}
+          onChatClick={() => setShowChat(true)}
+          onNotificationClick={() => setShowNotifications(true)}
+          onVirtualClassClick={() => setShowVirtualClass(true)}
+          unreadMessages={unreadMessages}
+          unreadNotifications={unreadNotifications}
+        />
       
       {/* Main content area */}
       <div className="flex-1 flex flex-col min-w-0 relative">
@@ -199,7 +204,8 @@ const Layout = ({ children, showChatOnly, setShowChatOnly, setCurrentView }) => 
       >
         Content loaded
       </div>
-    </div>
+      </div>
+    </>
   );
 };
 

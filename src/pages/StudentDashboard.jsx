@@ -2,11 +2,11 @@ import { Award, Bell, BookOpen, Calendar, TrendingUp, UserCheck, FileText, Uploa
 import React, { useState } from 'react';
 import { useDashboard } from '../context/DashboardContext';
 import { useBranding } from '../context/BrandingContext';
+import { useAuth } from '../context/AuthContext';
 import { getCurrentInstitute } from '../utils/instituteConfig';
 import DashboardSection from '../components/DashboardSection';
 
 import UploadModal from '../components/UploadModal';
-import ProfileSettings from '../components/ProfileSettings';
 import ReportAnalysis from '../components/ReportAnalysis';
 
 const StatCard = ({ icon: Icon, title, value, subtitle }) => (
@@ -29,9 +29,9 @@ const StatCard = ({ icon: Icon, title, value, subtitle }) => (
 const StudentDashboard = ({ showChatOnly, setShowChatOnly }) => {
   const { activeSection } = useDashboard();
   const { branding } = useBranding();
+  const { user } = useAuth();
   const currentInstitute = getCurrentInstitute();
   const [uploadModal, setUploadModal] = useState({ isOpen: false, title: '', type: '', maxSize: 10 });
-  const [showProfileSettings, setShowProfileSettings] = useState(false);
   const [showReportAnalysis, setShowReportAnalysis] = useState(false);
 
   if (showChatOnly) {
@@ -67,7 +67,7 @@ const StudentDashboard = ({ showChatOnly, setShowChatOnly }) => {
                 <Award className="h-6 w-6" />
                 <h1 className="text-2xl font-bold">Student Dashboard</h1>
               </div>
-              <p className="text-lg opacity-90">Welcome back, Anshu Kumar!</p>
+              <p className="text-lg opacity-90">Welcome back, {user?.displayName || user?.name || 'Student'}!</p>
               <p className="text-white/75 text-sm">{currentInstitute.name}</p>
             </div>
           </div>
@@ -78,13 +78,6 @@ const StudentDashboard = ({ showChatOnly, setShowChatOnly }) => {
             >
               <BarChart3 className="h-4 w-4 mr-2" />
               Reports
-            </button>
-            <button
-              onClick={() => setShowProfileSettings(true)}
-              className="bg-white/10 border border-white/30 text-white px-3 py-2 rounded-lg hover:bg-white/20 transition-colors flex items-center text-sm"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Profile
             </button>
           </div>
         </div>
@@ -1102,13 +1095,6 @@ const StudentDashboard = ({ showChatOnly, setShowChatOnly }) => {
           </div>
           <div className="flex space-x-3">
             <button 
-              onClick={() => setShowProfileSettings(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
-            >
-              <Settings className="h-4 w-4 mr-2" />
-              Edit Profile
-            </button>
-            <button 
               onClick={() => setShowReportAnalysis(true)}
               className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center"
             >
@@ -1125,12 +1111,6 @@ const StudentDashboard = ({ showChatOnly, setShowChatOnly }) => {
         title={uploadModal.title}
         type={uploadModal.type}
         maxSizeMB={uploadModal.maxSize}
-      />
-      
-      <ProfileSettings
-        isOpen={showProfileSettings}
-        onClose={() => setShowProfileSettings(false)}
-        userRole="student"
       />
       
       <ReportAnalysis

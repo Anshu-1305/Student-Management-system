@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { getCurrentInstitute, applyInstituteTheme } from '../utils/instituteConfig';
 
 
 const BrandingContext = createContext();
@@ -30,7 +31,6 @@ export const BrandingProvider = ({ children }) => {
 
   const loadBranding = () => {
     try {
-      const { getCurrentInstitute, applyInstituteTheme } = require('../utils/instituteConfig');
       const currentInstitute = getCurrentInstitute();
       
       // Apply CSS theme variables
